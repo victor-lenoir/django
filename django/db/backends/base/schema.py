@@ -70,7 +70,7 @@ class BaseDatabaseSchemaEditor:
 
     sql_create_fk = (
         "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) "
-        "REFERENCES %(to_table)s (%(to_column)s)%(deferrable)s"
+        "REFERENCES %(to_table)s (%(to_column)s)%(on_delete)s%(deferrable)s"
     )
     sql_create_inline_fk = None
     sql_delete_fk = "ALTER TABLE %(table)s DROP CONSTRAINT %(name)s"
@@ -268,6 +268,7 @@ class BaseDatabaseSchemaEditor:
                     definition += " " + self.sql_create_inline_fk % {
                         "to_table": self.quote_name(to_table),
                         "to_column": self.quote_name(to_column),
+                        "on_delete": self._create_on_delete_sql(model, field, None),
                     }
                 elif self.connection.features.supports_foreign_keys:
                     self.deferred_sql.append(self._create_fk_sql(model, field, "_fk_%(to_table)s_%(to_column)s"))
@@ -981,6 +982,13 @@ class BaseDatabaseSchemaEditor:
             "type": new_type,
         }
 
+     def _create_on_delete_sql(self, model, field, suffix):
+         on_delete = getattr(field.remote_field, 'on_delete', None)
+         if on_delete and on_delete.with_db:
+             return on_delete.as_sql(self.connection)
+         else:
+             return ""
+
     def _create_fk_sql(self, model, field, suffix):
         from_table = model._meta.db_table
         from_column = field.column
@@ -998,6 +1006,7 @@ class BaseDatabaseSchemaEditor:
             to_table=Table(field.target_field.model._meta.db_table, self.quote_name),
             to_column=Columns(field.target_field.model._meta.db_table, [to_column], self.quote_name),
             deferrable=self.connection.ops.deferrable_sql(),
+            on_delete=self._create_on_delete_sql(model, field, suffix),
         )
 
     def _create_unique_sql(self, model, columns):
