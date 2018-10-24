@@ -982,12 +982,12 @@ class BaseDatabaseSchemaEditor:
             "type": new_type,
         }
 
-     def _create_on_delete_sql(self, model, field, suffix):
-         on_delete = getattr(field.remote_field, 'on_delete', None)
-         if on_delete and on_delete.with_db:
-             return on_delete.as_sql(self.connection)
-         else:
-             return ""
+    def _create_on_delete_sql(self, model, field, suffix):
+        on_delete = getattr(field.remote_field, 'on_delete', None)
+        if on_delete and on_delete.with_db:
+            return on_delete.as_sql(self.connection)
+        else:
+            return ""
 
     def _create_fk_sql(self, model, field, suffix):
         from_table = model._meta.db_table
