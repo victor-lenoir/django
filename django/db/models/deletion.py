@@ -89,7 +89,8 @@ class DatabaseOnDelete(OnDelete):
 
 DO_NOTHING = DatabaseOnDelete('DO_NOTHING', 'NO ACTION')
 DB_CASCADE = DatabaseOnDelete('DB_CASCADE', 'CASCADE')
-
+DB_SET_NULL = DatabaseOnDelete('DB_SET_NULL', 'SET_NULL')
+DB_SET_DEFAULT = DatabaseOnDelete('DB_SET_DEFAULT', 'SET_DEFAULT')
 
 def get_candidate_relations_to_delete(opts):
     # The candidate relations are the ones that come from N-1 and 1-1 relations.
