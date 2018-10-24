@@ -210,6 +210,14 @@ class OperationSerializer(BaseSerializer):
         return string.rstrip(','), imports
 
 
+class OnDeleteSerializer(BaseSerializer):
+    def serialize(self):
+        if self.value.value is None:
+            return "models.%s" % (self.value.name), {}
+        elif self.value:
+            return "models.%s(%s)" % (self.value.name, self.value.value), {}
+
+
 class RegexSerializer(BaseSerializer):
     def serialize(self):
         regex_pattern, pattern_imports = serializer_factory(self.value.pattern).serialize()
@@ -326,6 +334,8 @@ def serializer_factory(value):
         return RegexSerializer(value)
     if isinstance(value, uuid.UUID):
         return UUIDSerializer(value)
+    if isinstance(value, models.OnDelete):
+        return OnDeleteSerializer(value)
     raise ValueError(
         "Cannot serialize: %r\nThere are some values Django cannot serialize into "
         "migration files.\nFor more, see https://docs.djangoproject.com/en/%s/"

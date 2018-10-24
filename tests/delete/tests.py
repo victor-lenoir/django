@@ -5,7 +5,7 @@ from django.db.models.sql.constants import GET_ITERATOR_CHUNK_SIZE
 from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
 
 from .models import (
-    MR, A, Avatar, Base, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
+    MR, A, Avatar, Base, BaseDbCascade, Child, HiddenUser, HiddenUserProfile, M, M2MFrom,
     M2MTo, MRNull, Parent, R, RChild, S, T, User, create_a, get_default_r,
 )
 
@@ -91,6 +91,23 @@ class OnDeleteTests(TestCase):
             # RelToBase should not be queried.
             b.delete()
         self.assertEqual(Base.objects.count(), 0)
+
+    @skipUnlessDBFeature("supports_foreign_keys")
+    def test_db_cascade(self):
+        a = create_a('db_cascade')
+        a.db_cascade.delete()
+        self.assertFalse(A.objects.filter(name='db_cascade').exists())
+
+    @skipUnlessDBFeature("supports_foreign_keys")
+    def test_db_cascade_qscount(self):
+        """
+        A models.DB_CASCADE relation doesn't trigger a query
+        """
+        b = BaseDbCascade.objects.create()
+        with self.assertNumQueries(1):
+            # RelToBaseDbCascade should not be queried.
+            b.delete()
+        self.assertEqual(BaseDbCascade.objects.count(), 0)
 
     def test_inheritance_cascade_up(self):
         child = RChild.objects.create()

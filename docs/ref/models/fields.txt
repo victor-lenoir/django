@@ -1330,6 +1330,13 @@ The possible values for :attr:`~ForeignKey.on_delete` are found in
     integrity, this will cause an :exc:`~django.db.IntegrityError` unless
     you manually add an SQL ``ON DELETE`` constraint to the database field.
 
+
+* .. attribute:: DB_CASCADE
+    .. versionadded:: 2.0
+     Cascade deletes. Django takes no direct action, and behaves exactly like
+     DO_NOTHING. The cascade deletion happens at the database level, by adding
+     ON DELETE CASCADE as an SQL constraint.
+
 .. attribute:: ForeignKey.limit_choices_to
 
     Sets a limit to the available choices for this field when this field is

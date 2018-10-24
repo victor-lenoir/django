@@ -57,7 +57,7 @@ def create_a(name):
     a = A(name=name)
     for name in ('auto', 'auto_nullable', 'setvalue', 'setnull', 'setdefault',
                  'setdefault_none', 'cascade', 'cascade_nullable', 'protect',
-                 'donothing', 'o2o_setnull'):
+                 'db_cascade', 'donothing', 'o2o_setnull'):
         r = R.objects.create()
         setattr(a, name, r)
     a.child = RChild.objects.create()
@@ -126,3 +126,11 @@ class Base(models.Model):
 
 class RelToBase(models.Model):
     base = models.ForeignKey(Base, models.DO_NOTHING)
+
+
+class BaseDbCascade(models.Model):
+    pass
+
+
+class RelToBaseDbCascade(models.Model):
+    base = models.ForeignKey(BaseDbCascade, models.DB_CASCADE)
