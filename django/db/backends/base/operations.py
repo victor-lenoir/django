@@ -168,7 +168,11 @@ class BaseDatabaseOperations:
         """
         on_delete = ' ON DELETE %s '
         if operation == 'CASCADE':
-            return on_delete % (operation)
+            return on_delete % ('CASCADE')
+        elif operation in ['SET_NULL', 'SET NULL']:
+            return on_delete % ('SET NULL')
+        elif operation in ['SET_DEFAULT', 'SET DEFAULT']:
+            return on_delete % ('SET DEFAULT')
         elif operation == 'NO ACTION':
             return ''
         else:
