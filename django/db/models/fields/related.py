@@ -9,7 +9,7 @@ from django.db import connection, router
 from django.db.backends import utils
 from django.db.models import Q
 from django.db.models.constants import LOOKUP_SEP
-from django.db.models.deletion import CASCADE, DB_CASCADE, DO_NOTHING, SET_DEFAULT, SET_NULL, DB_SET_NULL
+from django.db.models.deletion import CASCADE, DB_CASCADE, DO_NOTHING, SET_DEFAULT, SET_NULL, DB_SET_NULL, DB_SET_DEFAULT
 from django.db.models.query_utils import PathInfo
 from django.db.models.utils import make_model_tuple
 from django.utils.functional import cached_property
