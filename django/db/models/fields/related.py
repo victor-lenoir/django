@@ -839,7 +839,7 @@ class ForeignKey(ForeignObject):
                     id='fields.E321',
                 )
             ]
-                elif on_delete == DB_CASCADE and (
+        elif on_delete == DB_CASCADE and (
             any(  # generic relation
                 hasattr(field, 'bulk_related_objects') for field in
                 self.model._meta.private_fields
