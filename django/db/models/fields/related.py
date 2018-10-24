@@ -9,7 +9,7 @@ from django.db import connection, router
 from django.db.backends import utils
 from django.db.models import Q
 from django.db.models.constants import LOOKUP_SEP
-from django.db.models.deletion import CASCADE, DB_CASCADE, DO_NOTHING, SET_DEFAULT, SET_NULL
+from django.db.models.deletion import CASCADE, DB_CASCADE, DO_NOTHING, SET_DEFAULT, SET_NULL, DB_SET_NULL
 from django.db.models.query_utils import PathInfo
 from django.db.models.utils import make_model_tuple
 from django.utils.functional import cached_property
@@ -821,7 +821,7 @@ class ForeignKey(ForeignObject):
 
     def _check_on_delete(self):
         on_delete = getattr(self.remote_field, 'on_delete', None)
-        if on_delete == SET_NULL and not self.null:
+        if on_delete in [SET_NULL, DB_SET_NULL] and not self.null:
             return [
                 checks.Error(
                     'Field specifies on_delete=SET_NULL, but cannot be null.',
@@ -875,7 +875,7 @@ class ForeignKey(ForeignObject):
             any(  # field_A -> db_cascade -> field_B -> cascade -> field_C
                 getattr(field_B.remote_field, 'on_delete', None) and
                 getattr(field_B.remote_field, 'on_delete') not in [
-                    DB_CASCADE, DO_NOTHING
+                    DB_CASCADE, DO_NOTHING, DB_SET_NULL, DB_SET_DEFAULT
                 ]
                 for field_B in self.remote_field.model._meta.fields
             )
@@ -886,7 +886,7 @@ class ForeignKey(ForeignObject):
                     'unsupported CASCADE, SET_NULL, SET_VALUE or other '
                     'relation to another model.',
                     hint='Change the on_delete rule so that DB_CASCADE '
-                    'relations point to models using DB_CASCADE or '
+                    'relations point to models using DB_CASCADE, DB_SET_DEFAULT, DB_SET_NULL or '
                     'DO_NOTHING relations.',
                     obj=self,
                     id='fields.W346'
