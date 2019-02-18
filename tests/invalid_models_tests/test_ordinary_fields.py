@@ -40,7 +40,7 @@ class AutoFieldTests(SimpleTestCase):
 
 
 @isolate_apps('invalid_models_tests')
-class CharFieldTests(TestCase):
+class CharFieldTests(SimpleTestCase):
 
     def test_valid_field(self):
         class Model(models.Model):
@@ -156,14 +156,14 @@ class CharFieldTests(TestCase):
                 self.display = display
 
             def __iter__(self):
-                return (x for x in [self.value, self.display])
+                return iter((self.value, self.display))
 
             def __len__(self):
                 return 2
 
         class Things:
             def __iter__(self):
-                return (x for x in [ThingItem(1, 2), ThingItem(3, 4)])
+                return iter((ThingItem(1, 2), ThingItem(3, 4)))
 
         class ThingWithIterableChoices(models.Model):
             thing = models.CharField(max_length=100, blank=True, choices=Things())
@@ -312,7 +312,7 @@ class CharFieldTests(TestCase):
 
 
 @isolate_apps('invalid_models_tests')
-class DateFieldTests(TestCase):
+class DateFieldTests(SimpleTestCase):
     maxDiff = None
 
     def test_auto_now_and_auto_now_add_raise_error(self):
@@ -375,7 +375,7 @@ class DateFieldTests(TestCase):
 
 
 @isolate_apps('invalid_models_tests')
-class DateTimeFieldTests(TestCase):
+class DateTimeFieldTests(SimpleTestCase):
     maxDiff = None
 
     def test_fix_default_value(self):
@@ -617,21 +617,28 @@ class IntegerFieldTests(SimpleTestCase):
 
     def test_max_length_warning(self):
         class Model(models.Model):
-            value = models.IntegerField(max_length=2)
+            integer = models.IntegerField(max_length=2)
+            biginteger = models.BigIntegerField(max_length=2)
+            smallinteger = models.SmallIntegerField(max_length=2)
+            positiveinteger = models.PositiveIntegerField(max_length=2)
+            positivesmallinteger = models.PositiveSmallIntegerField(max_length=2)
 
-        field = Model._meta.get_field('value')
-        self.assertEqual(field.check(), [
-            DjangoWarning(
-                "'max_length' is ignored when used with IntegerField",
-                hint="Remove 'max_length' from field",
-                obj=field,
-                id='fields.W122',
-            )
-        ])
+        for field in Model._meta.get_fields():
+            if field.auto_created:
+                continue
+            with self.subTest(name=field.name):
+                self.assertEqual(field.check(), [
+                    DjangoWarning(
+                        "'max_length' is ignored when used with %s." % field.__class__.__name__,
+                        hint="Remove 'max_length' from field",
+                        obj=field,
+                        id='fields.W122',
+                    )
+                ])
 
 
 @isolate_apps('invalid_models_tests')
-class TimeFieldTests(TestCase):
+class TimeFieldTests(SimpleTestCase):
     maxDiff = None
 
     def test_fix_default_value(self):

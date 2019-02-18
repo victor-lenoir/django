@@ -5,14 +5,10 @@
 ``django-admin`` is Django's command-line utility for administrative tasks.
 This document outlines all it can do.
 
-In addition, ``manage.py`` is automatically created in each Django project.
-``manage.py`` does the same thing as ``django-admin`` but takes care of a few
-things for you:
-
-* It puts your project's package on ``sys.path``.
-
-* It sets the :envvar:`DJANGO_SETTINGS_MODULE` environment variable so that
-  it points to your project's ``settings.py`` file.
+In addition, ``manage.py`` is automatically created in each Django project. It
+does the same thing as ``django-admin`` but also sets the
+:envvar:`DJANGO_SETTINGS_MODULE` environment variable so that it points to your
+project's ``settings.py`` file.
 
 The ``django-admin`` script should be on your system path if you installed
 Django via its ``setup.py`` utility. If it's not on your path, you can find it
@@ -172,6 +168,17 @@ Example usage::
     django-admin compilemessages --exclude=pt_BR --exclude=fr
     django-admin compilemessages -x pt_BR
     django-admin compilemessages -x pt_BR -x fr
+
+.. django-admin-option:: --ignore PATTERN, -i PATTERN
+
+.. versionadded:: 3.0
+
+Ignores directories matching the given :mod:`glob`-style pattern. Use
+multiple times to ignore more.
+
+Example usage::
+
+    django-admin compilemessages --ignore=cache --ignore=outdated/*/locale
 
 ``createcachetable``
 --------------------
@@ -352,7 +359,8 @@ file) to standard output.
 
 You may choose what tables or views to inspect by passing their names as
 arguments. If no arguments are provided, models are created for views only if
-the :option:`--include-views` option is used.
+the :option:`--include-views` option is used. Models for partition tables are
+created on PostgreSQL if the :option:`--include-partitions` option is used.
 
 Use this if you have a legacy database with which you'd like to use Django.
 The script will inspect the database and create a model for each table within
@@ -398,12 +406,20 @@ it because ``True`` is its default value).
 Database-specific notes
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+Oracle
+^^^^^^
+
+* Models are created for materialized views if :option:`--include-views` is
+  used.
+
 PostgreSQL
 ^^^^^^^^^^
 
 * Models are created for foreign tables.
 * Models are created for materialized views if
   :option:`--include-views` is used.
+* Models are created for partition tables if
+  :option:`--include-partitions` is used.
 
 .. versionchanged:: 2.2
 
@@ -413,9 +429,15 @@ PostgreSQL
 
 Specifies the database to introspect. Defaults to ``default``.
 
-.. django-admin-option:: --include-views
+.. django-admin-option:: --include-partitions
 
-.. versionadded:: 2.1
+.. versionadded:: 2.2
+
+If this option is provided, models are also created for partitions.
+
+Only support for PostgreSQL is implemented.
+
+.. django-admin-option:: --include-views
 
 If this option is provided, models are also created for database views.
 
@@ -759,6 +781,12 @@ Enables fixing of migration conflicts.
 Allows naming the generated migration(s) instead of using a generated name. The
 name must be a valid Python :ref:`identifier <python:identifiers>`.
 
+.. django-admin-option:: --no-header
+
+.. versionadded:: 2.2
+
+Generate migration files without Django version and timestamp header.
+
 .. django-admin-option:: --check
 
 Makes ``makemigrations`` exit with a non-zero status when model changes without
@@ -856,13 +884,26 @@ needed. You don't need to restart the server for code changes to take effect.
 However, some actions like adding files don't trigger a restart, so you'll
 have to restart the server in these cases.
 
-If you are using Linux and install `pyinotify`_, kernel signals will be used to
-autoreload the server (rather than polling file modification timestamps each
-second). This offers better scaling to large projects, reduction in response
-time to code modification, more robust change detection, and battery usage
-reduction.
+If you're using Linux or MacOS and install both `pywatchman`_ and the
+`Watchman`_ service, kernel signals will be used to autoreload the server
+(rather than polling file modification timestamps each second). This offers
+better performance on large projects, reduced response time after code changes,
+more robust change detection, and a reduction in power usage.
 
-.. _pyinotify: https://pypi.org/project/pyinotify/
+.. admonition:: Large directories with many files may cause performance issues
+
+    When using Watchman with a project that includes large non-Python
+    directories like ``node_modules``, it's advisable to ignore this directory
+    for optimal performance. See the `watchman documentation`_ for information
+    on how to do this.
+
+.. _Watchman: https://facebook.github.io/watchman/
+.. _pywatchman: https://pypi.org/project/pywatchman/
+.. _watchman documentation: https://facebook.github.io/watchman/docs/config.html#ignore_dirs
+
+.. versionchanged:: 2.2
+
+   Watchman support replaced support for `pyinotify`.
 
 When you start the server, and each time you change Python code while the
 server is running, the system check framework will check your entire Django
@@ -1139,6 +1180,12 @@ Suppresses all user prompts.
 Sets the name of the squashed migration. When omitted, the name is based on the
 first and last migration, with ``_squashed_`` in between.
 
+.. django-admin-option:: --no-header
+
+.. versionadded:: 2.2
+
+Generate squashed migration file without Django version and timestamp header.
+
 ``startapp``
 ------------
 
@@ -1400,10 +1447,10 @@ For example, this command::
 
 ...would perform the following steps:
 
-1. Create a test database, as described in :ref:`the-test-database`.
-2. Populate the test database with fixture data from the given fixtures.
+#. Create a test database, as described in :ref:`the-test-database`.
+#. Populate the test database with fixture data from the given fixtures.
    (For more on fixtures, see the documentation for :djadmin:`loaddata` above.)
-3. Runs the Django development server (as in :djadmin:`runserver`), pointed at
+#. Runs the Django development server (as in :djadmin:`runserver`), pointed at
    this newly created test database instead of your production database.
 
 This is useful in a number of ways:

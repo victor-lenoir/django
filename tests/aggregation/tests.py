@@ -8,6 +8,7 @@ from django.db.models import (
     Avg, Count, DecimalField, DurationField, F, FloatField, Func, IntegerField,
     Max, Min, Sum, Value,
 )
+from django.db.models.expressions import Case, When
 from django.test import TestCase
 from django.test.utils import Approximate, CaptureQueriesContext
 from django.utils import timezone
@@ -394,6 +395,12 @@ class AggregateTestCase(TestCase):
             Book.objects.aggregate(n=Count("*"))
         sql = ctx.captured_queries[0]['sql']
         self.assertIn('SELECT COUNT(*) ', sql)
+
+    def test_count_distinct_expression(self):
+        aggs = Book.objects.aggregate(
+            distinct_ratings=Count(Case(When(pages__gt=300, then='rating')), distinct=True),
+        )
+        self.assertEqual(aggs['distinct_ratings'], 4)
 
     def test_non_grouped_annotation_not_in_group_by(self):
         """
@@ -865,15 +872,15 @@ class AggregateTestCase(TestCase):
 
     def test_avg_decimal_field(self):
         v = Book.objects.filter(rating=4).aggregate(avg_price=(Avg('price')))['avg_price']
-        self.assertIsInstance(v, float)
-        self.assertEqual(v, Approximate(47.39, places=2))
+        self.assertIsInstance(v, Decimal)
+        self.assertEqual(v, Approximate(Decimal('47.39'), places=2))
 
     def test_order_of_precedence(self):
         p1 = Book.objects.filter(rating=4).aggregate(avg_price=(Avg('price') + 2) * 3)
-        self.assertEqual(p1, {'avg_price': Approximate(148.18, places=2)})
+        self.assertEqual(p1, {'avg_price': Approximate(Decimal('148.18'), places=2)})
 
         p2 = Book.objects.filter(rating=4).aggregate(avg_price=Avg('price') + 2 * 3)
-        self.assertEqual(p2, {'avg_price': Approximate(53.39, places=2)})
+        self.assertEqual(p2, {'avg_price': Approximate(Decimal('53.39'), places=2)})
 
     def test_combine_different_types(self):
         msg = 'Expression contains mixed types. You must set output_field.'
@@ -1026,7 +1033,7 @@ class AggregateTestCase(TestCase):
         # test completely changing how the output is rendered
         def lower_case_function_override(self, compiler, connection):
             sql, params = compiler.compile(self.source_expressions[0])
-            substitutions = {'function': self.function.lower(), 'expressions': sql}
+            substitutions = {'function': self.function.lower(), 'expressions': sql, 'distinct': ''}
             substitutions.update(self.extra)
             return self.template % substitutions, params
         setattr(MySum, 'as_' + connection.vendor, lower_case_function_override)
@@ -1053,7 +1060,7 @@ class AggregateTestCase(TestCase):
 
         # test overriding all parts of the template
         def be_evil(self, compiler, connection):
-            substitutions = {'function': 'MAX', 'expressions': '2'}
+            substitutions = {'function': 'MAX', 'expressions': '2', 'distinct': ''}
             substitutions.update(self.extra)
             return self.template % substitutions, ()
         setattr(MySum, 'as_' + connection.vendor, be_evil)
@@ -1087,7 +1094,7 @@ class AggregateTestCase(TestCase):
                 return super().as_sql(compiler, connection, function='MAX', **extra_context)
 
         qs = Publisher.objects.annotate(
-            price_or_median=Greatest(Avg('book__rating'), Avg('book__price'))
+            price_or_median=Greatest(Avg('book__rating', output_field=DecimalField()), Avg('book__price'))
         ).filter(price_or_median__gte=F('num_awards')).order_by('num_awards')
         self.assertQuerysetEqual(
             qs, [1, 3, 7, 9], lambda v: v.num_awards)

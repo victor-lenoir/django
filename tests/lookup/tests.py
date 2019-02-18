@@ -15,60 +15,61 @@ from .models import (
 
 class LookupTests(TestCase):
 
-    def setUp(self):
+    @classmethod
+    def setUpTestData(cls):
         # Create a few Authors.
-        self.au1 = Author.objects.create(name='Author 1', alias='a1')
-        self.au2 = Author.objects.create(name='Author 2', alias='a2')
+        cls.au1 = Author.objects.create(name='Author 1', alias='a1')
+        cls.au2 = Author.objects.create(name='Author 2', alias='a2')
         # Create a few Articles.
-        self.a1 = Article.objects.create(
+        cls.a1 = Article.objects.create(
             headline='Article 1',
             pub_date=datetime(2005, 7, 26),
-            author=self.au1,
+            author=cls.au1,
             slug='a1',
         )
-        self.a2 = Article.objects.create(
+        cls.a2 = Article.objects.create(
             headline='Article 2',
             pub_date=datetime(2005, 7, 27),
-            author=self.au1,
+            author=cls.au1,
             slug='a2',
         )
-        self.a3 = Article.objects.create(
+        cls.a3 = Article.objects.create(
             headline='Article 3',
             pub_date=datetime(2005, 7, 27),
-            author=self.au1,
+            author=cls.au1,
             slug='a3',
         )
-        self.a4 = Article.objects.create(
+        cls.a4 = Article.objects.create(
             headline='Article 4',
             pub_date=datetime(2005, 7, 28),
-            author=self.au1,
+            author=cls.au1,
             slug='a4',
         )
-        self.a5 = Article.objects.create(
+        cls.a5 = Article.objects.create(
             headline='Article 5',
             pub_date=datetime(2005, 8, 1, 9, 0),
-            author=self.au2,
+            author=cls.au2,
             slug='a5',
         )
-        self.a6 = Article.objects.create(
+        cls.a6 = Article.objects.create(
             headline='Article 6',
             pub_date=datetime(2005, 8, 1, 8, 0),
-            author=self.au2,
+            author=cls.au2,
             slug='a6',
         )
-        self.a7 = Article.objects.create(
+        cls.a7 = Article.objects.create(
             headline='Article 7',
             pub_date=datetime(2005, 7, 27),
-            author=self.au2,
+            author=cls.au2,
             slug='a7',
         )
         # Create a few Tags.
-        self.t1 = Tag.objects.create(name='Tag 1')
-        self.t1.articles.add(self.a1, self.a2, self.a3)
-        self.t2 = Tag.objects.create(name='Tag 2')
-        self.t2.articles.add(self.a3, self.a4, self.a5)
-        self.t3 = Tag.objects.create(name='Tag 3')
-        self.t3.articles.add(self.a5, self.a6, self.a7)
+        cls.t1 = Tag.objects.create(name='Tag 1')
+        cls.t1.articles.add(cls.a1, cls.a2, cls.a3)
+        cls.t2 = Tag.objects.create(name='Tag 2')
+        cls.t2.articles.add(cls.a3, cls.a4, cls.a5)
+        cls.t3 = Tag.objects.create(name='Tag 3')
+        cls.t3.articles.add(cls.a5, cls.a6, cls.a7)
 
     def test_exists(self):
         # We can use .exists() to check that there are some
@@ -530,7 +531,7 @@ class LookupTests(TestCase):
         self.assertQuerysetEqual(Article.objects.filter(headline__startswith='Article').none(), [])
         self.assertEqual(Article.objects.none().count(), 0)
         self.assertEqual(Article.objects.none().update(headline="This should not take effect"), 0)
-        self.assertQuerysetEqual([article for article in Article.objects.none().iterator()], [])
+        self.assertQuerysetEqual(Article.objects.none().iterator(), [])
 
     def test_in(self):
         # using __in with an empty list should return an empty query set

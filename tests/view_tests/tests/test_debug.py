@@ -4,10 +4,10 @@ import os
 import re
 import sys
 import tempfile
+import threading
 from io import StringIO
 from pathlib import Path
 
-from django.conf.urls import url
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, connection
@@ -15,10 +15,9 @@ from django.shortcuts import render
 from django.template import TemplateDoesNotExist
 from django.test import RequestFactory, SimpleTestCase, override_settings
 from django.test.utils import LoggingCaptureMixin
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils.functional import SimpleLazyObject
 from django.utils.safestring import mark_safe
-from django.utils.version import PY36
 from django.views.debug import (
     CLEANSED_SUBSTITUTE, CallableSettingWrapper, ExceptionReporter,
     cleanse_setting, technical_500_response,
@@ -38,7 +37,7 @@ class User:
 
 
 class WithoutEmptyPathUrls:
-    urlpatterns = [url(r'url/$', index_page, name='url')]
+    urlpatterns = [path('url/', index_page, name='url')]
 
 
 class CallableSettingWrapperTests(SimpleTestCase):
@@ -105,9 +104,6 @@ class DebugViewTests(SimpleTestCase):
     def test_404(self):
         response = self.client.get('/raises404/')
         self.assertEqual(response.status_code, 404)
-
-    def test_raised_404(self):
-        response = self.client.get('/views/raises404/')
         self.assertContains(response, "<code>not-in-urls</code>, didn't match", status_code=404)
 
     def test_404_not_in_urls(self):
@@ -128,12 +124,12 @@ class DebugViewTests(SimpleTestCase):
         self.assertContains(response, "The empty path didn't match any of these.", status_code=404)
 
     def test_technical_404(self):
-        response = self.client.get('/views/technical404/')
+        response = self.client.get('/technical404/')
         self.assertContains(response, "Raised by:", status_code=404)
         self.assertContains(response, "view_tests.views.technical404", status_code=404)
 
     def test_classbased_technical_404(self):
-        response = self.client.get('/views/classbased404/')
+        response = self.client.get('/classbased404/')
         self.assertContains(response, "Raised by:", status_code=404)
         self.assertContains(response, "view_tests.views.Http404View", status_code=404)
 
@@ -229,7 +225,7 @@ class DebugViewTests(SimpleTestCase):
 
 class DebugViewQueriesAllowedTests(SimpleTestCase):
     # May need a query to initialize MySQL connection
-    allow_database_queries = True
+    databases = {'default'}
 
     def test_handle_db_exception(self):
         """
@@ -408,6 +404,44 @@ class ExceptionReporterTests(SimpleTestCase):
         text = reporter.get_traceback_text()
         self.assertIn('"generated" in funcName', text)
 
+    def test_reporting_frames_for_cyclic_reference(self):
+        try:
+            def test_func():
+                try:
+                    raise RuntimeError('outer') from RuntimeError('inner')
+                except RuntimeError as exc:
+                    raise exc.__cause__
+            test_func()
+        except Exception:
+            exc_type, exc_value, tb = sys.exc_info()
+        request = self.rf.get('/test_view/')
+        reporter = ExceptionReporter(request, exc_type, exc_value, tb)
+
+        def generate_traceback_frames(*args, **kwargs):
+            nonlocal tb_frames
+            tb_frames = reporter.get_traceback_frames()
+
+        tb_frames = None
+        tb_generator = threading.Thread(target=generate_traceback_frames, daemon=True)
+        tb_generator.start()
+        tb_generator.join(timeout=5)
+        if tb_generator.is_alive():
+            # tb_generator is a daemon that runs until the main thread/process
+            # exits. This is resource heavy when running the full test suite.
+            # Setting the following values to None makes
+            # reporter.get_traceback_frames() exit early.
+            exc_value.__traceback__ = exc_value.__context__ = exc_value.__cause__ = None
+            tb_generator.join()
+            self.fail('Cyclic reference in Exception Reporter.get_traceback_frames()')
+        if tb_frames is None:
+            # can happen if the thread generating traceback got killed
+            # or exception while generating the traceback
+            self.fail('Traceback generation failed')
+        last_frame = tb_frames[-1]
+        self.assertIn('raise exc.__cause__', last_frame['context_line'])
+        self.assertEqual(last_frame['filename'], __file__)
+        self.assertEqual(last_frame['function'], 'test_func')
+
     def test_request_and_message(self):
         "A message can be provided in addition to a request"
         request = self.rf.get('/test_view/')
@@ -519,7 +553,7 @@ class ExceptionReporterTests(SimpleTestCase):
             exc_type, exc_value, tb = sys.exc_info()
         reporter = ExceptionReporter(request, exc_type, exc_value, tb)
         html = reporter.get_traceback_html()
-        self.assertInHTML('<h1>%sError at /test_view/</h1>' % ('ModuleNotFound' if PY36 else 'Import'), html)
+        self.assertInHTML('<h1>ModuleNotFoundError at /test_view/</h1>', html)
 
     def test_ignore_traceback_evaluation_exceptions(self):
         """
@@ -732,14 +766,14 @@ class PlainTextReportTests(SimpleTestCase):
 
 
 class ExceptionReportTestMixin:
-
     # Mixin used in the ExceptionReporterFilterTests and
     # AjaxResponseExceptionReporterFilter tests below
-
-    breakfast_data = {'sausage-key': 'sausage-value',
-                      'baked-beans-key': 'baked-beans-value',
-                      'hash-brown-key': 'hash-brown-value',
-                      'bacon-key': 'bacon-value'}
+    breakfast_data = {
+        'sausage-key': 'sausage-value',
+        'baked-beans-key': 'baked-beans-value',
+        'hash-brown-key': 'hash-brown-value',
+        'bacon-key': 'bacon-value',
+    }
 
     def verify_unsafe_response(self, view, check_for_vars=True,
                                check_for_POST_params=True):

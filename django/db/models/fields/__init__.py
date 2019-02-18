@@ -153,7 +153,7 @@ class Field(RegisterLookupMixin):
         self.unique_for_year = unique_for_year
         if isinstance(choices, collections.abc.Iterator):
             choices = list(choices)
-        self.choices = choices or []
+        self.choices = choices
         self.help_text = help_text
         self.db_index = db_index
         self.db_column = db_column
@@ -443,7 +443,7 @@ class Field(RegisterLookupMixin):
             "unique_for_date": None,
             "unique_for_month": None,
             "unique_for_year": None,
-            "choices": [],
+            "choices": None,
             "help_text": '',
             "db_column": None,
             "db_tablespace": None,
@@ -598,7 +598,7 @@ class Field(RegisterLookupMixin):
             # Skip validation for non-editable fields.
             return
 
-        if self.choices and value not in self.empty_values:
+        if self.choices is not None and value not in self.empty_values:
             for option_key, option_value in self.choices:
                 if isinstance(option_value, (list, tuple)):
                     # This is an optgroup, so look inside the group for
@@ -742,7 +742,7 @@ class Field(RegisterLookupMixin):
             # such fields can't be deferred (we don't have a check for this).
             if not getattr(cls, self.attname, None):
                 setattr(cls, self.attname, DeferredAttribute(self.attname))
-        if self.choices:
+        if self.choices is not None:
             setattr(cls, 'get_%s_display' % self.name,
                     partialmethod(cls._get_FIELD_display, field=self))
 
@@ -807,12 +807,12 @@ class Field(RegisterLookupMixin):
             return return_None
         return str  # return empty string
 
-    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH, limit_choices_to=None):
+    def get_choices(self, include_blank=True, blank_choice=BLANK_CHOICE_DASH, limit_choices_to=None, ordering=()):
         """
         Return choices with a default blank choices included, for use
         as <select> choices for this field.
         """
-        if self.choices:
+        if self.choices is not None:
             choices = list(self.choices)
             if include_blank:
                 blank_defined = any(choice in ('', None) for choice, _ in self.flatchoices)
@@ -828,7 +828,7 @@ class Field(RegisterLookupMixin):
         )
         return (blank_choice if include_blank else []) + [
             (choice_func(x), str(x))
-            for x in rel_model._default_manager.complex_filter(limit_choices_to)
+            for x in rel_model._default_manager.complex_filter(limit_choices_to).order_by(*ordering)
         ]
 
     def value_to_string(self, obj):
@@ -840,6 +840,8 @@ class Field(RegisterLookupMixin):
 
     def _get_flatchoices(self):
         """Flattened version of choices tuple."""
+        if self.choices is None:
+            return []
         flat = []
         for choice, value in self.choices:
             if isinstance(value, (list, tuple)):
@@ -854,16 +856,18 @@ class Field(RegisterLookupMixin):
 
     def formfield(self, form_class=None, choices_form_class=None, **kwargs):
         """Return a django.forms.Field instance for this field."""
-        defaults = {'required': not self.blank,
-                    'label': capfirst(self.verbose_name),
-                    'help_text': self.help_text}
+        defaults = {
+            'required': not self.blank,
+            'label': capfirst(self.verbose_name),
+            'help_text': self.help_text,
+        }
         if self.has_default():
             if callable(self.default):
                 defaults['initial'] = self.default
                 defaults['show_hidden_initial'] = True
             else:
                 defaults['initial'] = self.get_default()
-        if self.choices:
+        if self.choices is not None:
             # Fields with choices get special treatment.
             include_blank = (self.blank or
                              not (self.has_default() or 'initial' in kwargs))
@@ -1016,7 +1020,7 @@ class BooleanField(Field):
         return self.to_python(value)
 
     def formfield(self, **kwargs):
-        if self.choices:
+        if self.choices is not None:
             include_blank = not (self.has_default() or 'initial' in kwargs)
             defaults = {'choices': self.get_choices(include_blank=include_blank)}
         else:
@@ -1773,7 +1777,7 @@ class IntegerField(Field):
         if self.max_length is not None:
             return [
                 checks.Warning(
-                    "'max_length' is ignored when used with IntegerField",
+                    "'max_length' is ignored when used with %s." % self.__class__.__name__,
                     hint="Remove 'max_length' from field",
                     obj=self,
                     id='fields.W122',
@@ -1827,7 +1831,6 @@ class IntegerField(Field):
 
 
 class BigIntegerField(IntegerField):
-    empty_strings_allowed = False
     description = _("Big (8 byte) integer")
     MAX_BIGINT = 9223372036854775807
 
@@ -2079,7 +2082,7 @@ class TextField(Field):
         # the value in the form field (to pass into widget for example).
         return super().formfield(**{
             'max_length': self.max_length,
-            **({} if self.choices else {'widget': forms.Textarea}),
+            **({} if self.choices is not None else {'widget': forms.Textarea}),
             **kwargs,
         })
 
@@ -2292,7 +2295,7 @@ class UUIDField(Field):
     default_error_messages = {
         'invalid': _("'%(value)s' is not a valid UUID."),
     }
-    description = 'Universally unique identifier'
+    description = _('Universally unique identifier')
     empty_strings_allowed = False
 
     def __init__(self, verbose_name=None, **kwargs):
@@ -2319,8 +2322,9 @@ class UUIDField(Field):
 
     def to_python(self, value):
         if value is not None and not isinstance(value, uuid.UUID):
+            input_form = 'int' if isinstance(value, int) else 'hex'
             try:
-                return uuid.UUID(value)
+                return uuid.UUID(**{input_form: value})
             except (AttributeError, ValueError):
                 raise exceptions.ValidationError(
                     self.error_messages['invalid'],

@@ -60,6 +60,7 @@ class Permission(models.Model):
         verbose_name=_('content type'),
     )
     codename = models.CharField(_('codename'), max_length=100)
+
     objects = PermissionManager()
 
     class Meta:
@@ -70,11 +71,7 @@ class Permission(models.Model):
                     'codename')
 
     def __str__(self):
-        return "%s | %s | %s" % (
-            self.content_type.app_label,
-            self.content_type,
-            self.name,
-        )
+        return '%s | %s' % (self.content_type, self.name)
 
     def natural_key(self):
         return (self.codename,) + self.content_type.natural_key()
@@ -108,7 +105,7 @@ class Group(models.Model):
     members-only portion of your site, or sending them members-only email
     messages.
     """
-    name = models.CharField(_('name'), max_length=80, unique=True)
+    name = models.CharField(_('name'), max_length=150, unique=True)
     permissions = models.ManyToManyField(
         Permission,
         verbose_name=_('permissions'),

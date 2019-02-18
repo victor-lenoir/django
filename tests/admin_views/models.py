@@ -80,12 +80,12 @@ class Chapter(models.Model):
     content = models.TextField()
     book = models.ForeignKey(Book, models.CASCADE)
 
-    def __str__(self):
-        return self.title
-
     class Meta:
         # Use a utf-8 bytestring to ensure it works (see #11710)
         verbose_name = '¿Chapter?'
+
+    def __str__(self):
+        return self.title
 
 
 class ChapterXtra1(models.Model):
@@ -632,19 +632,16 @@ class Reservation(models.Model):
     price = models.IntegerField()
 
 
-DRIVER_CHOICES = (
-    ('bill', 'Bill G'),
-    ('steve', 'Steve J'),
-)
-
-RESTAURANT_CHOICES = (
-    ('indian', 'A Taste of India'),
-    ('thai', 'Thai Pography'),
-    ('pizza', 'Pizza Mama'),
-)
-
-
 class FoodDelivery(models.Model):
+    DRIVER_CHOICES = (
+        ('bill', 'Bill G'),
+        ('steve', 'Steve J'),
+    )
+    RESTAURANT_CHOICES = (
+        ('indian', 'A Taste of India'),
+        ('thai', 'Thai Pography'),
+        ('pizza', 'Pizza Mama'),
+    )
     reference = models.CharField(max_length=100)
     driver = models.CharField(max_length=100, choices=DRIVER_CHOICES, blank=True)
     restaurant = models.CharField(max_length=100, choices=RESTAURANT_CHOICES, blank=True)
@@ -979,3 +976,9 @@ class Author(models.Model):
 class Authorship(models.Model):
     book = models.ForeignKey(Book, models.CASCADE)
     author = models.ForeignKey(Author, models.CASCADE)
+
+
+class UserProxy(User):
+    """Proxy a model with a different app_label."""
+    class Meta:
+        proxy = True

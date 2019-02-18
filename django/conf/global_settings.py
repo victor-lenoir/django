@@ -89,6 +89,7 @@ LANGUAGES = [
     ('hr', gettext_noop('Croatian')),
     ('hsb', gettext_noop('Upper Sorbian')),
     ('hu', gettext_noop('Hungarian')),
+    ('hy', gettext_noop('Armenian')),
     ('ia', gettext_noop('Interlingua')),
     ('id', gettext_noop('Indonesian')),
     ('io', gettext_noop('Ido')),
@@ -163,10 +164,8 @@ USE_L10N = False
 # notifications and other various emails.
 MANAGERS = ADMINS
 
-# Default content type and charset to use for all HttpResponse objects, if a
-# MIME type isn't manually specified. These are used to construct the
-# Content-Type header.
-DEFAULT_CONTENT_TYPE = 'text/html'
+# Default charset to use for all HttpResponse objects, if a MIME type isn't
+# manually specified. It's used to construct the Content-Type header.
 DEFAULT_CHARSET = 'utf-8'
 
 # Encoding of files read from disk (template and initial SQL files).
@@ -305,7 +304,7 @@ FILE_UPLOAD_TEMP_DIR = None
 
 # The numeric mode to set newly-uploaded files to. The value should be a mode
 # you'd pass directly to os.chmod; see https://docs.python.org/library/os.html#files-and-directories.
-FILE_UPLOAD_PERMISSIONS = None
+FILE_UPLOAD_PERMISSIONS = 0o644
 
 # The numeric mode to assign to newly-created directories, when uploading files.
 # The value should be a mode as you'd pass to os.chmod;

@@ -13,7 +13,7 @@ from django.db import connections
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.utils import DatabaseError as WrappedDatabaseError
 from django.utils.functional import cached_property
-from django.utils.safestring import SafeText
+from django.utils.safestring import SafeString
 from django.utils.version import get_version_tuple
 
 try:
@@ -44,7 +44,7 @@ from .operations import DatabaseOperations                  # NOQA isort:skip
 from .schema import DatabaseSchemaEditor                    # NOQA isort:skip
 from .utils import utc_tzinfo_factory                       # NOQA isort:skip
 
-psycopg2.extensions.register_adapter(SafeText, psycopg2.extensions.QuotedString)
+psycopg2.extensions.register_adapter(SafeString, psycopg2.extensions.QuotedString)
 psycopg2.extras.register_uuid()
 
 # Register support for inet[] manually so we don't have to handle the Inet()
@@ -121,7 +121,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     #
     # Note: we use str.format() here for readability as '%' is used as a wildcard for
     # the LIKE operator.
-    pattern_esc = r"REPLACE(REPLACE(REPLACE({}, '\', '\\'), '%%', '\%%'), '_', '\_')"
+    pattern_esc = r"REPLACE(REPLACE(REPLACE({}, E'\\', E'\\\\'), E'%%', E'\\%%'), E'_', E'\\_')"
     pattern_ops = {
         'contains': "LIKE '%%' || {} || '%%'",
         'icontains': "LIKE '%%' || UPPER({}) || '%%'",
@@ -195,7 +195,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return connection
 
     def ensure_timezone(self):
-        self.ensure_connection()
+        if not self.is_usable():
+            return False
         conn_timezone_name = self.connection.get_parameter_status('TimeZone')
         timezone_name = self.timezone_name
         if timezone_name and conn_timezone_name != timezone_name:
@@ -207,6 +208,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     def init_connection_state(self):
         self.connection.set_client_encoding('UTF8')
 
+        self.ensure_connection()
         timezone_changed = self.ensure_timezone()
         if timezone_changed:
             # Commit after setting the time zone (see #17062)
@@ -246,6 +248,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         self.cursor().execute('SET CONSTRAINTS ALL DEFERRED')
 
     def is_usable(self):
+        if self.connection is None:
+            return False
         try:
             # Use a psycopg cursor directly, bypassing Django's utilities.
             self.connection.cursor().execute("SELECT 1")
@@ -273,7 +277,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                     return self.__class__(
                         {**self.settings_dict, 'NAME': connection.settings_dict['NAME']},
                         alias=self.alias,
-                        allow_thread_sharing=False,
                     )
         return nodb_connection
 

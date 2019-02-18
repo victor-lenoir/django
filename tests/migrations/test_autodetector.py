@@ -1662,6 +1662,11 @@ class AutodetectorTests(TestCase):
         self.assertOperationTypes(changes, 'testapp', 0, ["CreateModel"])
         self.assertOperationAttributes(changes, 'testapp', 0, 0, name="AuthorUnmanaged", options={"managed": False})
 
+    def test_unmanaged_delete(self):
+        changes = self.get_changes([self.author_empty, self.author_unmanaged], [self.author_empty])
+        self.assertNumberMigrations(changes, 'testapp', 1)
+        self.assertOperationTypes(changes, 'testapp', 0, ['DeleteModel'])
+
     def test_unmanaged_to_managed(self):
         # Now, we test turning an unmanaged model into a managed model
         changes = self.get_changes(
@@ -2347,6 +2352,18 @@ class AutodetectorTests(TestCase):
         self.assertNumberMigrations(changes, 'a', 1)
         self.assertOperationTypes(changes, 'a', 0, ["CreateModel"])
         self.assertMigrationDependencies(changes, 'a', 0, [])
+
+    @override_settings(AUTH_USER_MODEL='a.User')
+    def test_swappable_circular_multi_mti(self):
+        with isolate_lru_cache(apps.get_swappable_settings_name):
+            parent = ModelState('a', 'Parent', [
+                ('user', models.ForeignKey(settings.AUTH_USER_MODEL, models.CASCADE))
+            ])
+            child = ModelState('a', 'Child', [], bases=('a.Parent',))
+            user = ModelState('a', 'User', [], bases=(AbstractBaseUser, 'a.Child'))
+            changes = self.get_changes([], [parent, child, user])
+        self.assertNumberMigrations(changes, 'a', 1)
+        self.assertOperationTypes(changes, 'a', 0, ['CreateModel', 'CreateModel', 'CreateModel', 'AddField'])
 
     @mock.patch('django.db.migrations.questioner.MigrationQuestioner.ask_not_null_addition',
                 side_effect=AssertionError("Should not have prompted for not null addition"))

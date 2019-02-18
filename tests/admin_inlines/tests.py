@@ -27,22 +27,23 @@ class TestDataMixin:
 
 @override_settings(ROOT_URLCONF='admin_inlines.urls')
 class TestInline(TestDataMixin, TestCase):
+    factory = RequestFactory()
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        cls.holder = Holder.objects.create(dummy=13)
+        Inner.objects.create(dummy=42, holder=cls.holder)
 
     def setUp(self):
-        holder = Holder(dummy=13)
-        holder.save()
-        Inner(dummy=42, holder=holder).save()
-
         self.client.force_login(self.superuser)
-        self.factory = RequestFactory()
 
     def test_can_delete(self):
         """
         can_delete should be passed to inlineformset factory.
         """
-        holder = Holder.objects.get(dummy=13)
         response = self.client.get(
-            reverse('admin:admin_inlines_holder_change', args=(holder.id,))
+            reverse('admin:admin_inlines_holder_change', args=(self.holder.id,))
         )
         inner_formset = response.context['inline_admin_formsets'][0].formset
         expected = InnerInline.can_delete
@@ -85,13 +86,27 @@ class TestInline(TestDataMixin, TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(len(Fashionista.objects.filter(person__firstname='Imelda')), 1)
 
+    def test_tabular_inline_column_css_class(self):
+        """
+        Field names are included in the context to output a field-specific
+        CSS class name in the column headers.
+        """
+        response = self.client.get(reverse('admin:admin_inlines_poll_add'))
+        text_field, call_me_field = list(response.context['inline_admin_formset'].fields())
+        # Editable field.
+        self.assertEqual(text_field['name'], 'text')
+        self.assertContains(response, '<th class="column-text required">')
+        # Read-only field.
+        self.assertEqual(call_me_field['name'], 'call_me')
+        self.assertContains(response, '<th class="column-call_me">')
+
     def test_custom_form_tabular_inline_label(self):
         """
         A model form with a form field specified (TitleForm.title1) should have
         its label rendered in the tabular inline.
         """
         response = self.client.get(reverse('admin:admin_inlines_titlecollection_add'))
-        self.assertContains(response, '<th class="required">Title1</th>', html=True)
+        self.assertContains(response, '<th class="column-title1 required">Title1</th>', html=True)
 
     def test_custom_form_tabular_inline_overridden_label(self):
         """
@@ -101,7 +116,7 @@ class TestInline(TestDataMixin, TestCase):
         response = self.client.get(reverse('admin:admin_inlines_someparentmodel_add'))
         field = list(response.context['inline_admin_formset'].fields())[0]
         self.assertEqual(field['label'], 'new label')
-        self.assertContains(response, '<th class="required">New label</th>', html=True)
+        self.assertContains(response, '<th class="column-name required">New label</th>', html=True)
 
     def test_tabular_non_field_errors(self):
         """
@@ -556,41 +571,41 @@ class TestInlinePermissions(TestCase):
     inline. Refs #8060.
     """
 
-    def setUp(self):
-        self.user = User(username='admin')
-        self.user.is_staff = True
-        self.user.is_active = True
-        self.user.set_password('secret')
-        self.user.save()
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = User(username='admin', is_staff=True, is_active=True)
+        cls.user.set_password('secret')
+        cls.user.save()
 
-        self.author_ct = ContentType.objects.get_for_model(Author)
-        self.holder_ct = ContentType.objects.get_for_model(Holder2)
-        self.book_ct = ContentType.objects.get_for_model(Book)
-        self.inner_ct = ContentType.objects.get_for_model(Inner2)
+        cls.author_ct = ContentType.objects.get_for_model(Author)
+        cls.holder_ct = ContentType.objects.get_for_model(Holder2)
+        cls.book_ct = ContentType.objects.get_for_model(Book)
+        cls.inner_ct = ContentType.objects.get_for_model(Inner2)
 
         # User always has permissions to add and change Authors, and Holders,
         # the main (parent) models of the inlines. Permissions on the inlines
         # vary per test.
-        permission = Permission.objects.get(codename='add_author', content_type=self.author_ct)
-        self.user.user_permissions.add(permission)
-        permission = Permission.objects.get(codename='change_author', content_type=self.author_ct)
-        self.user.user_permissions.add(permission)
-        permission = Permission.objects.get(codename='add_holder2', content_type=self.holder_ct)
-        self.user.user_permissions.add(permission)
-        permission = Permission.objects.get(codename='change_holder2', content_type=self.holder_ct)
-        self.user.user_permissions.add(permission)
+        permission = Permission.objects.get(codename='add_author', content_type=cls.author_ct)
+        cls.user.user_permissions.add(permission)
+        permission = Permission.objects.get(codename='change_author', content_type=cls.author_ct)
+        cls.user.user_permissions.add(permission)
+        permission = Permission.objects.get(codename='add_holder2', content_type=cls.holder_ct)
+        cls.user.user_permissions.add(permission)
+        permission = Permission.objects.get(codename='change_holder2', content_type=cls.holder_ct)
+        cls.user.user_permissions.add(permission)
 
         author = Author.objects.create(pk=1, name='The Author')
         book = author.books.create(name='The inline Book')
-        self.author_change_url = reverse('admin:admin_inlines_author_change', args=(author.id,))
+        cls.author_change_url = reverse('admin:admin_inlines_author_change', args=(author.id,))
         # Get the ID of the automatically created intermediate model for the Author-Book m2m
         author_book_auto_m2m_intermediate = Author.books.through.objects.get(author=author, book=book)
-        self.author_book_auto_m2m_intermediate_id = author_book_auto_m2m_intermediate.pk
+        cls.author_book_auto_m2m_intermediate_id = author_book_auto_m2m_intermediate.pk
 
-        holder = Holder2.objects.create(dummy=13)
-        self.inner2 = Inner2.objects.create(dummy=42, holder=holder)
-        self.holder_change_url = reverse('admin:admin_inlines_holder2_change', args=(holder.id,))
+        cls.holder = Holder2.objects.create(dummy=13)
+        cls.inner2 = Inner2.objects.create(dummy=42, holder=cls.holder)
 
+    def setUp(self):
+        self.holder_change_url = reverse('admin:admin_inlines_holder2_change', args=(self.holder.id,))
         self.client.force_login(self.user)
 
     def test_inline_add_m2m_noperm(self):
@@ -710,7 +725,7 @@ class TestInlinePermissions(TestCase):
             html=True
         )
         # TabularInline
-        self.assertContains(response, '<th class="required">Dummy</th>', html=True)
+        self.assertContains(response, '<th class="column-dummy required">Dummy</th>', html=True)
         self.assertContains(
             response,
             '<input type="number" name="inner2_set-2-0-dummy" value="%s" '
@@ -781,7 +796,7 @@ class TestInlinePermissions(TestCase):
         )
         self.assertContains(response, 'id="id_inner2_set-0-DELETE"')
         # TabularInline
-        self.assertContains(response, '<th class="required">Dummy</th>', html=True)
+        self.assertContains(response, '<th class="column-dummy required">Dummy</th>', html=True)
         self.assertContains(
             response,
             '<input type="number" name="inner2_set-2-0-dummy" value="%s" '
