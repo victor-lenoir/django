@@ -1,5 +1,3 @@
-from unittest import mock
-
 from django.apps.registry import apps as global_apps
 from django.db import connection
 from django.db.migrations.exceptions import InvalidMigrationPlan
@@ -7,9 +5,7 @@ from django.db.migrations.executor import MigrationExecutor
 from django.db.migrations.graph import MigrationGraph
 from django.db.migrations.recorder import MigrationRecorder
 from django.db.utils import DatabaseError
-from django.test import (
-    SimpleTestCase, modify_settings, override_settings, skipUnlessDBFeature,
-)
+from django.test import TestCase, modify_settings, override_settings
 
 from .test_base import MigrationTestBase
 
@@ -653,22 +649,6 @@ class ExecutorTests(MigrationTestBase):
             recorder.applied_migrations(),
         )
 
-    # When the feature is False, the operation and the record won't be
-    # performed in a transaction and the test will systematically pass.
-    @skipUnlessDBFeature('can_rollback_ddl')
-    @override_settings(MIGRATION_MODULES={'migrations': 'migrations.test_migrations'})
-    def test_migrations_applied_and_recorded_atomically(self):
-        """Migrations are applied and recorded atomically."""
-        executor = MigrationExecutor(connection)
-        with mock.patch('django.db.migrations.executor.MigrationExecutor.record_migration') as record_migration:
-            record_migration.side_effect = RuntimeError('Recording migration failed.')
-            with self.assertRaisesMessage(RuntimeError, 'Recording migration failed.'):
-                executor.migrate([('migrations', '0001_initial')])
-        # The migration isn't recorded as applied since it failed.
-        migration_recorder = MigrationRecorder(connection)
-        self.assertFalse(migration_recorder.migration_qs.filter(app='migrations', name='0001_initial').exists())
-        self.assertTableNotExists('migrations_author')
-
 
 class FakeLoader:
     def __init__(self, graph, applied):
@@ -685,7 +665,7 @@ class FakeMigration:
         return 'M<%s>' % self.name
 
 
-class ExecutorUnitTests(SimpleTestCase):
+class ExecutorUnitTests(TestCase):
     """(More) isolated unit tests for executor methods."""
     def test_minimize_rollbacks(self):
         """

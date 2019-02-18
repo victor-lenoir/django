@@ -31,6 +31,7 @@ from django.test import Client, TestCase, override_settings
 from django.test.client import RedirectCycleError
 from django.urls import NoReverseMatch, reverse, reverse_lazy
 from django.utils.http import urlsafe_base64_encode
+from django.utils.translation import LANGUAGE_SESSION_KEY
 
 from .client import PasswordResetConfirmClient
 from .models import CustomUser, UUIDUser
@@ -318,7 +319,7 @@ class PasswordResetTest(AuthViewsTestCase):
         ]
     )
     def test_confirm_login_post_reset_custom_backend(self):
-        # This backend is specified in the URL pattern.
+        # This backend is specified in the url().
         backend = 'django.contrib.auth.backends.AllowAllUsersModelBackend'
         url, path = self._test_confirm_start()
         path = path.replace('/reset/', '/reset/post_reset_login_custom_backend/')
@@ -1074,12 +1075,16 @@ class LogoutTest(AuthViewsTestCase):
         self.confirm_logged_out()
 
     def test_logout_preserve_language(self):
-        """Language is preserved after logout."""
-        self.login()
-        self.client.post('/setlang/', {'language': 'pl'})
-        self.assertEqual(self.client.cookies[settings.LANGUAGE_COOKIE_NAME].value, 'pl')
+        """Language stored in session is preserved after logout"""
+        # Create a new session with language
+        engine = import_module(settings.SESSION_ENGINE)
+        session = engine.SessionStore()
+        session[LANGUAGE_SESSION_KEY] = 'pl'
+        session.save()
+        self.client.cookies[settings.SESSION_COOKIE_NAME] = session.session_key
+
         self.client.get('/logout/')
-        self.assertEqual(self.client.cookies[settings.LANGUAGE_COOKIE_NAME].value, 'pl')
+        self.assertEqual(self.client.session[LANGUAGE_SESSION_KEY], 'pl')
 
     @override_settings(LOGOUT_REDIRECT_URL='/custom/')
     def test_logout_redirect_url_setting(self):
@@ -1104,15 +1109,10 @@ def get_perm(Model, perm):
 @override_settings(ROOT_URLCONF='auth_tests.urls_admin')
 class ChangelistTests(AuthViewsTestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        super().setUpTestData()
+    def setUp(self):
         # Make me a superuser before logging in.
         User.objects.filter(username='testclient').update(is_staff=True, is_superuser=True)
-
-    def setUp(self):
         self.login()
-        # Get the latest last_login value.
         self.admin = User.objects.get(pk=self.u1.pk)
 
     def get_user_data(self, user):

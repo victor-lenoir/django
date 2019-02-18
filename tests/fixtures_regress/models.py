@@ -98,10 +98,9 @@ class TestManager(models.Manager):
 
 
 class Store(models.Model):
+    objects = TestManager()
     name = models.CharField(max_length=255)
     main = models.ForeignKey('self', models.SET_NULL, null=True)
-
-    objects = TestManager()
 
     class Meta:
         ordering = ('name',)
@@ -114,9 +113,8 @@ class Store(models.Model):
 
 
 class Person(models.Model):
-    name = models.CharField(max_length=255)
-
     objects = TestManager()
+    name = models.CharField(max_length=255)
 
     class Meta:
         ordering = ('name',)
@@ -247,7 +245,6 @@ class BaseNKModel(models.Model):
     Base model with a natural_key and a manager with `get_by_natural_key`
     """
     data = models.CharField(max_length=20, unique=True)
-
     objects = NKManager()
 
     class Meta:

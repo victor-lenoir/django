@@ -3,14 +3,14 @@ from django.core.exceptions import NON_FIELD_ERRORS
 from django.test import TestCase
 from django.utils.functional import lazy
 
-from . import ValidationAssertions
+from . import ValidationTestCase
 from .models import (
     Article, Author, GenericIPAddressTestModel, GenericIPAddrUnpackUniqueTest,
     ModelToValidate,
 )
 
 
-class BaseModelValidationTests(ValidationAssertions, TestCase):
+class BaseModelValidationTests(ValidationTestCase):
 
     def test_missing_required_field_raises_error(self):
         mtv = ModelToValidate(f_with_custom_validator=42)
@@ -83,9 +83,8 @@ class ArticleForm(forms.ModelForm):
 
 
 class ModelFormsTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.author = Author.objects.create(name='Joseph Kocherhans')
+    def setUp(self):
+        self.author = Author.objects.create(name='Joseph Kocherhans')
 
     def test_partial_validation(self):
         # Make sure the "commit=False and set field values later" idiom still
@@ -127,7 +126,7 @@ class ModelFormsTests(TestCase):
         self.assertEqual(list(form.errors), ['pub_date'])
 
 
-class GenericIPAddressFieldTests(ValidationAssertions, TestCase):
+class GenericIPAddressFieldTests(ValidationTestCase):
 
     def test_correct_generic_ip_passes(self):
         giptm = GenericIPAddressTestModel(generic_ip="1.2.3.4")

@@ -2,10 +2,7 @@ from django.core import serializers
 from django.db import connection
 from django.test import TestCase
 
-from .models import (
-    Child, FKDataNaturalKey, NaturalKeyAnchor, NaturalKeyThing,
-    NaturalPKWithDefault,
-)
+from .models import Child, FKDataNaturalKey, NaturalKeyAnchor, NaturalKeyThing
 from .tests import register_tests
 
 
@@ -185,21 +182,6 @@ def forward_ref_m2m_with_error_test(self, format):
         obj.save_deferred_fields()
 
 
-def pk_with_default(self, format):
-    """
-    The deserializer works with natural keys when the primary key has a default
-    value.
-    """
-    obj = NaturalPKWithDefault.objects.create(name='name')
-    string_data = serializers.serialize(
-        format, NaturalPKWithDefault.objects.all(), use_natural_foreign_keys=True,
-        use_natural_primary_keys=True,
-    )
-    objs = list(serializers.deserialize(format, string_data))
-    self.assertEqual(len(objs), 1)
-    self.assertEqual(objs[0].object.pk, obj.pk)
-
-
 # Dynamically register tests for each serializer
 register_tests(NaturalKeySerializerTests, 'test_%s_natural_key_serializer', natural_key_serializer_test)
 register_tests(NaturalKeySerializerTests, 'test_%s_serializer_natural_keys', natural_key_test)
@@ -208,4 +190,3 @@ register_tests(NaturalKeySerializerTests, 'test_%s_forward_references_fks', forw
 register_tests(NaturalKeySerializerTests, 'test_%s_forward_references_fk_errors', forward_ref_fk_with_error_test)
 register_tests(NaturalKeySerializerTests, 'test_%s_forward_references_m2ms', forward_ref_m2m_test)
 register_tests(NaturalKeySerializerTests, 'test_%s_forward_references_m2m_errors', forward_ref_m2m_with_error_test)
-register_tests(NaturalKeySerializerTests, 'test_%s_pk_with_default', pk_with_default)

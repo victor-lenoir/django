@@ -5,11 +5,11 @@ each name to resolve and Django must distinguish the possibilities based on the
 argument list.
 """
 
-from django.urls import re_path
+from django.conf.urls import url
 
 from .views import empty_view
 
 urlpatterns = [
-    re_path(r'^part/(?P<value>\w+)/$', empty_view, name='part'),
-    re_path(r'^part2/(?:(?P<value>\w+)/)?$', empty_view, name='part2'),
+    url(r'^part/(?P<value>\w+)/$', empty_view, name="part"),
+    url(r'^part2/(?:(?P<value>\w+)/)?$', empty_view, name="part2"),
 ]

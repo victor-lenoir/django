@@ -2,13 +2,12 @@ import datetime
 import decimal
 from importlib import import_module
 
-import sqlparse
-
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import NotSupportedError, transaction
 from django.db.backends import utils
 from django.utils import timezone
-from django.utils.encoding import force_str
+from django.utils.encoding import force_text
 
 
 class BaseDatabaseOperations:
@@ -252,7 +251,7 @@ class BaseDatabaseOperations:
         """
         # Convert params to contain string values.
         def to_string(s):
-            return force_str(s, strings_only=True, errors='replace')
+            return force_text(s, strings_only=True, errors='replace')
         if isinstance(params, (list, tuple)):
             u_params = tuple(to_string(val) for val in params)
         elif params is None:
@@ -316,10 +315,16 @@ class BaseDatabaseOperations:
         cursor.execute() call and PEP 249 doesn't talk about this use case,
         the default implementation is conservative.
         """
-        return [
-            sqlparse.format(statement, strip_comments=True)
-            for statement in sqlparse.split(sql) if statement
-        ]
+        try:
+            import sqlparse
+        except ImportError:
+            raise ImproperlyConfigured(
+                "The sqlparse package is required if you don't split your SQL "
+                "statements manually."
+            )
+        else:
+            return [sqlparse.format(statement, strip_comments=True)
+                    for statement in sqlparse.split(sql) if statement]
 
     def process_clob(self, value):
         """

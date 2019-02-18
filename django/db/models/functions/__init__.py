@@ -1,4 +1,4 @@
-from .comparison import Cast, Coalesce, Greatest, Least, NullIf
+from .comparison import Cast, Coalesce, Greatest, Least
 from .datetime import (
     Extract, ExtractDay, ExtractHour, ExtractIsoYear, ExtractMinute,
     ExtractMonth, ExtractQuarter, ExtractSecond, ExtractWeek, ExtractWeekDay,
@@ -11,7 +11,7 @@ from .math import (
 )
 from .text import (
     Chr, Concat, ConcatPair, Left, Length, Lower, LPad, LTrim, Ord, Repeat,
-    Replace, Reverse, Right, RPad, RTrim, StrIndex, Substr, Trim, Upper,
+    Replace, Right, RPad, RTrim, StrIndex, Substr, Trim, Upper,
 )
 from .window import (
     CumeDist, DenseRank, FirstValue, Lag, LastValue, Lead, NthValue, Ntile,
@@ -20,7 +20,7 @@ from .window import (
 
 __all__ = [
     # comparison and conversion
-    'Cast', 'Coalesce', 'Greatest', 'Least', 'NullIf',
+    'Cast', 'Coalesce', 'Greatest', 'Least',
     # datetime
     'Extract', 'ExtractDay', 'ExtractHour', 'ExtractMinute', 'ExtractMonth',
     'ExtractQuarter', 'ExtractSecond', 'ExtractWeek', 'ExtractWeekDay',
@@ -34,8 +34,8 @@ __all__ = [
     'Sin', 'Sqrt', 'Tan',
     # text
     'Chr', 'Concat', 'ConcatPair', 'Left', 'Length', 'Lower', 'LPad', 'LTrim',
-    'Ord', 'Repeat', 'Replace', 'Reverse', 'Right', 'RPad', 'RTrim',
-    'StrIndex', 'Substr', 'Trim', 'Upper',
+    'Ord', 'Repeat', 'Replace', 'Right', 'RPad', 'RTrim', 'StrIndex', 'Substr',
+    'Trim', 'Upper',
     # window
     'CumeDist', 'DenseRank', 'FirstValue', 'Lag', 'LastValue', 'Lead',
     'NthValue', 'Ntile', 'PercentRank', 'Rank', 'RowNumber',

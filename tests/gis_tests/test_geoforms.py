@@ -69,31 +69,19 @@ class GeometryFieldTest(SimpleTestCase):
 
     def test_to_python(self):
         """
-        to_python() either returns a correct GEOSGeometry object or
-        a ValidationError.
+        Testing to_python returns a correct GEOSGeometry object or
+        a ValidationError
         """
-        good_inputs = [
-            'POINT(5 23)',
-            'MULTIPOLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)))',
-            'LINESTRING(0 0, 1 1)',
-        ]
-        bad_inputs = [
-            'POINT(5)',
-            'MULTI   POLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)))',
-            'BLAH(0 0, 1 1)',
-            '{"type": "FeatureCollection", "features": ['
-            '{"geometry": {"type": "Point", "coordinates": [508375, 148905]}, "type": "Feature"}]}',
-        ]
         fld = forms.GeometryField()
         # to_python returns the same GEOSGeometry for a WKT
-        for geo_input in good_inputs:
-            with self.subTest(geo_input=geo_input):
-                self.assertEqual(GEOSGeometry(geo_input, srid=fld.widget.map_srid), fld.to_python(geo_input))
+        for wkt in ('POINT(5 23)', 'MULTIPOLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)))', 'LINESTRING(0 0, 1 1)'):
+            with self.subTest(wkt=wkt):
+                self.assertEqual(GEOSGeometry(wkt, srid=fld.widget.map_srid), fld.to_python(wkt))
         # but raises a ValidationError for any other string
-        for geo_input in bad_inputs:
-            with self.subTest(geo_input=geo_input):
+        for wkt in ('POINT(5)', 'MULTI   POLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)))', 'BLAH(0 0, 1 1)'):
+            with self.subTest(wkt=wkt):
                 with self.assertRaises(forms.ValidationError):
-                    fld.to_python(geo_input)
+                    fld.to_python(wkt)
 
     def test_to_python_different_map_srid(self):
         f = forms.GeometryField(widget=OpenLayersWidget)

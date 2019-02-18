@@ -1,14 +1,9 @@
 import re
-from collections import namedtuple
-
-import sqlparse
 
 from django.db.backends.base.introspection import (
-    BaseDatabaseIntrospection, FieldInfo as BaseFieldInfo, TableInfo,
+    BaseDatabaseIntrospection, FieldInfo, TableInfo,
 )
 from django.db.models.indexes import Index
-
-FieldInfo = namedtuple('FieldInfo', BaseFieldInfo._fields + ('pk',))
 
 field_size_re = re.compile(r'^\s*(?:var)?char\s*\(\s*(\d+)\s*\)\s*$')
 
@@ -40,7 +35,6 @@ class FlexibleFieldLookupDict:
         'real': 'FloatField',
         'text': 'TextField',
         'char': 'CharField',
-        'varchar': 'CharField',
         'blob': 'BinaryField',
         'date': 'DateField',
         'datetime': 'DateTimeField',
@@ -48,20 +42,18 @@ class FlexibleFieldLookupDict:
     }
 
     def __getitem__(self, key):
-        key = key.lower().split('(', 1)[0].strip()
-        return self.base_data_types_reverse[key]
+        key = key.lower()
+        try:
+            return self.base_data_types_reverse[key]
+        except KeyError:
+            size = get_field_size(key)
+            if size is not None:
+                return ('CharField', {'max_length': size})
+            raise KeyError
 
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
     data_types_reverse = FlexibleFieldLookupDict()
-
-    def get_field_type(self, data_type, description):
-        field_type = super().get_field_type(data_type, description)
-        if description.pk and field_type in {'BigIntegerField', 'IntegerField'}:
-            # No support for BigAutoField as SQLite treats all integer primary
-            # keys as signed 64-bit integers.
-            return 'AutoField'
-        return field_type
 
     def get_table_list(self, cursor):
         """Return a list of table and view names in the current database."""
@@ -78,13 +70,17 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
         Return a description of the table with the DB-API cursor.description
         interface.
         """
-        cursor.execute('PRAGMA table_info(%s)' % self.connection.ops.quote_name(table_name))
         return [
             FieldInfo(
-                name, data_type, None, get_field_size(data_type), None, None,
-                not notnull, default, pk == 1,
-            )
-            for cid, name, data_type, notnull, default, pk in cursor.fetchall()
+                info['name'],
+                info['type'],
+                None,
+                info['size'],
+                None,
+                None,
+                info['null_ok'],
+                info['default'],
+            ) for info in self._table_info(cursor, table_name)
         ]
 
     def get_sequences(self, cursor, table_name, table_fields=()):
@@ -201,6 +197,18 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 return m.group(1) if m.group(1) else m.group(2)
         return None
 
+    def _table_info(self, cursor, name):
+        cursor.execute('PRAGMA table_info(%s)' % self.connection.ops.quote_name(name))
+        # cid, name, type, notnull, default_value, pk
+        return [{
+            'name': field[1],
+            'type': field[2],
+            'size': get_field_size(field[2]),
+            'null_ok': not field[3],
+            'default': field[4],
+            'pk': field[5],  # undocumented
+        } for field in cursor.fetchall()]
+
     def _get_foreign_key_constraints(self, cursor, table_name):
         constraints = {}
         cursor.execute('PRAGMA foreign_key_list(%s)' % self.connection.ops.quote_name(table_name))
@@ -234,52 +242,25 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
             # table_name is a view.
             pass
         else:
-            # Check constraint parsing is based of SQLite syntax diagram.
-            # https://www.sqlite.org/syntaxdiagrams.html#table-constraint
-            def next_ttype(ttype):
-                for token in tokens:
-                    if token.ttype == ttype:
-                        return token
-
-            statement = sqlparse.parse(table_schema)[0]
-            tokens = statement.flatten()
-            for token in tokens:
-                name = None
-                if token.match(sqlparse.tokens.Keyword, 'CONSTRAINT'):
-                    # Table constraint
-                    name_token = next_ttype(sqlparse.tokens.Literal.String.Symbol)
-                    name = name_token.value[1:-1]
-                    token = next_ttype(sqlparse.tokens.Keyword)
-                if token.match(sqlparse.tokens.Keyword, 'UNIQUE'):
-                    constraints[name] = {
-                        'unique': True,
-                        'columns': [],
-                        'primary_key': False,
-                        'foreign_key': False,
-                        'check': False,
-                        'index': False,
-                    }
-                if token.match(sqlparse.tokens.Keyword, 'CHECK'):
-                    # Column check constraint
-                    if name is None:
-                        column_token = next_ttype(sqlparse.tokens.Literal.String.Symbol)
-                        column = column_token.value[1:-1]
-                        name = '__check__%s' % column
-                        columns = [column]
-                    else:
-                        columns = []
-                    constraints[name] = {
-                        'check': True,
-                        'columns': columns,
-                        'primary_key': False,
-                        'unique': False,
-                        'foreign_key': False,
-                        'index': False,
-                    }
+            fields_with_check_constraints = [
+                schema_row.strip().split(' ')[0][1:-1]
+                for schema_row in table_schema.split(',')
+                if schema_row.find('CHECK') >= 0
+            ]
+            for field_name in fields_with_check_constraints:
+                # An arbitrary made up name.
+                constraints['__check__%s' % field_name] = {
+                    'columns': [field_name],
+                    'primary_key': False,
+                    'unique': False,
+                    'foreign_key': False,
+                    'check': True,
+                    'index': False,
+                }
         # Get the index info
         cursor.execute("PRAGMA index_list(%s)" % self.connection.ops.quote_name(table_name))
         for row in cursor.fetchall():
-            # SQLite 3.8.9+ has 5 columns, however older versions only give 3
+            # Sqlite3 3.8.9+ has 5 columns, however older versions only give 3
             # columns. Discard last 2 columns if there.
             number, index, unique = row[:3]
             # Get the index info for that index

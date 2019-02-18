@@ -2356,57 +2356,39 @@ Password: <input type="password" name="password" required>
 
         p = Person({'name': 'Joe'}, auto_id=False)
         self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown" selected>Unknown</option>
-<option value="true">Yes</option>
-<option value="false">No</option>
+<option value="1" selected>Unknown</option>
+<option value="2">Yes</option>
+<option value="3">No</option>
 </select>""")
         p = Person({'name': 'Joe', 'is_cool': '1'}, auto_id=False)
         self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown" selected>Unknown</option>
-<option value="true">Yes</option>
-<option value="false">No</option>
+<option value="1" selected>Unknown</option>
+<option value="2">Yes</option>
+<option value="3">No</option>
 </select>""")
         p = Person({'name': 'Joe', 'is_cool': '2'}, auto_id=False)
         self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown">Unknown</option>
-<option value="true" selected>Yes</option>
-<option value="false">No</option>
+<option value="1">Unknown</option>
+<option value="2" selected>Yes</option>
+<option value="3">No</option>
 </select>""")
         p = Person({'name': 'Joe', 'is_cool': '3'}, auto_id=False)
         self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown">Unknown</option>
-<option value="true">Yes</option>
-<option value="false" selected>No</option>
+<option value="1">Unknown</option>
+<option value="2">Yes</option>
+<option value="3" selected>No</option>
 </select>""")
         p = Person({'name': 'Joe', 'is_cool': True}, auto_id=False)
         self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown">Unknown</option>
-<option value="true" selected>Yes</option>
-<option value="false">No</option>
+<option value="1">Unknown</option>
+<option value="2" selected>Yes</option>
+<option value="3">No</option>
 </select>""")
         p = Person({'name': 'Joe', 'is_cool': False}, auto_id=False)
         self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown">Unknown</option>
-<option value="true">Yes</option>
-<option value="false" selected>No</option>
-</select>""")
-        p = Person({'name': 'Joe', 'is_cool': 'unknown'}, auto_id=False)
-        self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown" selected>Unknown</option>
-<option value="true">Yes</option>
-<option value="false">No</option>
-</select>""")
-        p = Person({'name': 'Joe', 'is_cool': 'true'}, auto_id=False)
-        self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown">Unknown</option>
-<option value="true" selected>Yes</option>
-<option value="false">No</option>
-</select>""")
-        p = Person({'name': 'Joe', 'is_cool': 'false'}, auto_id=False)
-        self.assertHTMLEqual(str(p['is_cool']), """<select name="is_cool">
-<option value="unknown">Unknown</option>
-<option value="true">Yes</option>
-<option value="false" selected>No</option>
+<option value="1">Unknown</option>
+<option value="2">Yes</option>
+<option value="3" selected>No</option>
 </select>""")
 
     def test_forms_with_file_fields(self):
@@ -2776,9 +2758,9 @@ Good luck picking a username that doesn&#39;t already exist.</p>
 <label class="required" for="id_name">Name:</label> <input type="text" name="name" id="id_name" required></li>
 <li class="required"><label class="required" for="id_is_cool">Is cool:</label>
 <select name="is_cool" id="id_is_cool">
-<option value="unknown" selected>Unknown</option>
-<option value="true">Yes</option>
-<option value="false">No</option>
+<option value="1" selected>Unknown</option>
+<option value="2">Yes</option>
+<option value="3">No</option>
 </select></li>
 <li><label for="id_email">Email:</label> <input type="email" name="email" id="id_email"></li>
 <li class="required error"><ul class="errorlist"><li>This field is required.</li></ul>
@@ -2792,9 +2774,9 @@ Good luck picking a username that doesn&#39;t already exist.</p>
 <input type="text" name="name" id="id_name" required></p>
 <p class="required"><label class="required" for="id_is_cool">Is cool:</label>
 <select name="is_cool" id="id_is_cool">
-<option value="unknown" selected>Unknown</option>
-<option value="true">Yes</option>
-<option value="false">No</option>
+<option value="1" selected>Unknown</option>
+<option value="2">Yes</option>
+<option value="3">No</option>
 </select></p>
 <p><label for="id_email">Email:</label> <input type="email" name="email" id="id_email"></p>
 <ul class="errorlist"><li>This field is required.</li></ul>
@@ -2810,9 +2792,9 @@ Good luck picking a username that doesn&#39;t already exist.</p>
 <input type="text" name="name" id="id_name" required></td></tr>
 <tr class="required"><th><label class="required" for="id_is_cool">Is cool:</label></th>
 <td><select name="is_cool" id="id_is_cool">
-<option value="unknown" selected>Unknown</option>
-<option value="true">Yes</option>
-<option value="false">No</option>
+<option value="1" selected>Unknown</option>
+<option value="2">Yes</option>
+<option value="3">No</option>
 </select></td></tr>
 <tr><th><label for="id_email">Email:</label></th><td>
 <input type="email" name="email" id="id_email"></td></tr>
@@ -2872,14 +2854,8 @@ Good luck picking a username that doesn&#39;t already exist.</p>
         self.assertEqual(form.errors, {'name': ['bad value not allowed']})
         form = NameForm(data={'name': ['should be overly', 'long for the field names']})
         self.assertFalse(form.is_valid())
-        self.assertEqual(
-            form.errors, {
-                'name': [
-                    'Ensure this value has at most 10 characters (it has 16).',
-                    'Ensure this value has at most 10 characters (it has 24).',
-                ],
-            }
-        )
+        self.assertEqual(form.errors, {'name': ['Ensure this value has at most 10 characters (it has 16).',
+                                                'Ensure this value has at most 10 characters (it has 24).']})
         form = NameForm(data={'name': ['fname', 'lname']})
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data, {'name': 'fname lname'})

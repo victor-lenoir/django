@@ -77,17 +77,17 @@ class SimpleTemplateResponseTest(SimpleTestCase):
         self.assertFalse(response.is_rendered)
 
         def iteration():
-            list(response)
-
-        msg = 'The response content must be rendered before it can be iterated over.'
-        with self.assertRaisesMessage(ContentNotRenderedError, msg):
+            for x in response:
+                pass
+        with self.assertRaises(ContentNotRenderedError):
             iteration()
         self.assertFalse(response.is_rendered)
 
     def test_iteration_rendered(self):
         # iteration works for rendered responses
         response = self._response().render()
-        self.assertEqual(list(response), [b'foo'])
+        res = [x for x in response]
+        self.assertEqual(res, [b'foo'])
 
     def test_content_access_unrendered(self):
         # unrendered response raises an exception when content is accessed
@@ -224,7 +224,9 @@ class SimpleTemplateResponseTest(SimpleTestCase):
     },
 }])
 class TemplateResponseTest(SimpleTestCase):
-    factory = RequestFactory()
+
+    def setUp(self):
+        self.factory = RequestFactory()
 
     def _response(self, template='foo', *args, **kwargs):
         self._request = self.factory.get('/')

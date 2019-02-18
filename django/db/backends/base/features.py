@@ -1,4 +1,5 @@
-from django.db.utils import ProgrammingError
+from django.db.models.aggregates import StdDev
+from django.db.utils import NotSupportedError, ProgrammingError
 from django.utils.functional import cached_property
 
 
@@ -22,10 +23,10 @@ class BaseDatabaseFeatures:
     supports_partially_nullable_unique_constraints = True
 
     can_use_chunked_reads = True
-    can_return_columns_from_insert = False
-    can_return_rows_from_bulk_insert = False
+    can_return_id_from_insert = False
+    can_return_ids_from_bulk_insert = False
     has_bulk_insert = True
-    uses_savepoints = True
+    uses_savepoints = False
     can_release_savepoints = False
 
     # If True, don't use integer foreign keys referring to, e.g., positive
@@ -143,10 +144,6 @@ class BaseDatabaseFeatures:
     # Can the backend introspect a TimeField, instead of a DateTimeField?
     can_introspect_time_field = True
 
-    # Some backends may not be able to differentiate BigAutoField from other
-    # fields such as AutoField.
-    introspected_big_auto_field_type = 'BigAutoField'
-
     # Some backends may not be able to differentiate BooleanField from other
     # fields such as IntegerField.
     introspected_boolean_field_type = 'BooleanField'
@@ -154,11 +151,12 @@ class BaseDatabaseFeatures:
     # Can the backend introspect the column order (ASC/DESC) for indexes?
     supports_index_column_ordering = True
 
-    # Does the backend support introspection of materialized views?
-    can_introspect_materialized_views = False
-
     # Support for the DISTINCT ON clause
     can_distinct_on_fields = False
+
+    # Does the backend decide to commit before SAVEPOINT statements
+    # when autocommit is disabled? https://bugs.python.org/issue8145#msg109965
+    autocommits_when_autocommit_is_off = False
 
     # Does the backend prevent running SQL queries in broken transactions?
     atomic_transactions = True
@@ -174,9 +172,6 @@ class BaseDatabaseFeatures:
 
     # Does it support foreign keys?
     supports_foreign_keys = True
-
-    # Can it create foreign key constraints inline when adding columns?
-    can_create_inline_fk = True
 
     # Does it support CHECK constraints?
     supports_column_check_constraints = True
@@ -199,11 +194,17 @@ class BaseDatabaseFeatures:
     # Does 'a' LIKE 'A' match?
     has_case_insensitive_like = True
 
+    # Does the backend require the sqlparse library for splitting multi-line
+    # statements before executing them?
+    requires_sqlparse_for_splitting = True
+
     # Suffix for backends that don't support "SELECT xxx;" queries.
     bare_select_suffix = ''
 
     # If NULL is implied on columns without needing to be explicitly specified
     implied_column_null = False
+
+    uppercases_column_names = False
 
     # Does the backend support "select for update" queries with limit (and offset)?
     supports_select_for_update_with_limit = True
@@ -228,7 +229,6 @@ class BaseDatabaseFeatures:
     supports_select_intersection = True
     supports_select_difference = True
     supports_slicing_ordering_in_compound = False
-    supports_parentheses_in_compound = True
 
     # Does the database support SQL 2003 FILTER (WHERE ...) in aggregate
     # expressions?
@@ -237,9 +237,8 @@ class BaseDatabaseFeatures:
     # Does the backend support indexing a TextField?
     supports_index_on_text_field = True
 
-    # Does the backend support window expressions (expression OVER (...))?
+    # Does the backed support window expressions (expression OVER (...))?
     supports_over_clause = False
-    supports_frame_range_fixed_distance = False
 
     # Does the backend support CAST with precision?
     supports_cast_with_precision = True
@@ -277,10 +276,6 @@ class BaseDatabaseFeatures:
     # in UPDATE statements to ensure the expression has the correct type?
     requires_casted_case_in_updates = False
 
-    # Does the backend support partial indexes (CREATE INDEX ... WHERE ...)?
-    supports_partial_indexes = True
-    supports_functions_in_partial_indexes = True
-
     def __init__(self, connection):
         self.connection = connection
 
@@ -302,3 +297,12 @@ class BaseDatabaseFeatures:
             count, = cursor.fetchone()
             cursor.execute('DROP TABLE ROLLBACK_TEST')
         return count == 0
+
+    @cached_property
+    def supports_stddev(self):
+        """Confirm support for STDDEV and related stats functions."""
+        try:
+            self.connection.ops.check_expression_support(StdDev(1))
+        except NotSupportedError:
+            return False
+        return True

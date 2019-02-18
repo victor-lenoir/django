@@ -532,7 +532,7 @@ class FileSessionTests(SessionTestsMixin, unittest.TestCase):
     def test_invalid_key_backslash(self):
         # Ensure we don't allow directory-traversal.
         # This is tested directly on _key_to_file, as load() will swallow
-        # a SuspiciousOperation in the same way as an OSError - by creating
+        # a SuspiciousOperation in the same way as an IOError - by creating
         # a new session, making it unclear whether the slashes were detected.
         with self.assertRaises(InvalidSessionKey):
             self.backend()._key_to_file("a\\b\\c")
@@ -625,11 +625,10 @@ class CacheSessionTests(SessionTestsMixin, unittest.TestCase):
 
 
 class SessionMiddlewareTests(TestCase):
-    request_factory = RequestFactory()
 
     @override_settings(SESSION_COOKIE_SECURE=True)
     def test_secure_session_cookie(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 
@@ -643,7 +642,7 @@ class SessionMiddlewareTests(TestCase):
 
     @override_settings(SESSION_COOKIE_HTTPONLY=True)
     def test_httponly_session_cookie(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 
@@ -661,7 +660,7 @@ class SessionMiddlewareTests(TestCase):
 
     @override_settings(SESSION_COOKIE_SAMESITE='Strict')
     def test_samesite_session_cookie(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse()
         middleware = SessionMiddleware()
         middleware.process_request(request)
@@ -671,7 +670,7 @@ class SessionMiddlewareTests(TestCase):
 
     @override_settings(SESSION_COOKIE_HTTPONLY=False)
     def test_no_httponly_session_cookie(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 
@@ -688,7 +687,7 @@ class SessionMiddlewareTests(TestCase):
         )
 
     def test_session_save_on_500(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Horrible error')
         response.status_code = 500
         middleware = SessionMiddleware()
@@ -705,7 +704,7 @@ class SessionMiddlewareTests(TestCase):
 
     def test_session_update_error_redirect(self):
         path = '/foo/'
-        request = self.request_factory.get(path)
+        request = RequestFactory().get(path)
         response = HttpResponse()
         middleware = SessionMiddleware()
 
@@ -724,7 +723,7 @@ class SessionMiddlewareTests(TestCase):
             middleware.process_response(request, response)
 
     def test_session_delete_on_end(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 
@@ -751,7 +750,7 @@ class SessionMiddlewareTests(TestCase):
 
     @override_settings(SESSION_COOKIE_DOMAIN='.example.local', SESSION_COOKIE_PATH='/example/')
     def test_session_delete_on_end_with_custom_domain_and_path(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 
@@ -779,7 +778,7 @@ class SessionMiddlewareTests(TestCase):
         )
 
     def test_flush_empty_without_session_cookie_doesnt_set_cookie(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 
@@ -800,7 +799,7 @@ class SessionMiddlewareTests(TestCase):
         If a session is emptied of data but still has a key, it should still
         be updated.
         """
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         response = HttpResponse('Session test')
         middleware = SessionMiddleware()
 

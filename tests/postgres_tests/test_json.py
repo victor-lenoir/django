@@ -9,7 +9,7 @@ from django.forms import CharField, Form, widgets
 from django.test.utils import isolate_apps
 from django.utils.html import escape
 
-from . import PostgreSQLSimpleTestCase, PostgreSQLTestCase
+from . import PostgreSQLTestCase
 from .models import JSONModel, PostgreSQLModel
 
 try:
@@ -301,7 +301,7 @@ class TestQuerying(PostgreSQLTestCase):
 
 
 @isolate_apps('postgres_tests')
-class TestChecks(PostgreSQLSimpleTestCase):
+class TestChecks(PostgreSQLTestCase):
 
     def test_invalid_default(self):
         class MyModel(PostgreSQLModel):
@@ -336,7 +336,7 @@ class TestChecks(PostgreSQLSimpleTestCase):
         self.assertEqual(model.check(), [])
 
 
-class TestSerialization(PostgreSQLSimpleTestCase):
+class TestSerialization(PostgreSQLTestCase):
     test_data = (
         '[{"fields": {"field": %s, "field_custom": null}, '
         '"model": "postgres_tests.jsonmodel", "pk": null}]'
@@ -362,7 +362,7 @@ class TestSerialization(PostgreSQLSimpleTestCase):
                 self.assertEqual(instance.field, value)
 
 
-class TestValidation(PostgreSQLSimpleTestCase):
+class TestValidation(PostgreSQLTestCase):
 
     def test_not_serializable(self):
         field = JSONField()
@@ -378,7 +378,7 @@ class TestValidation(PostgreSQLSimpleTestCase):
         self.assertEqual(field.clean(datetime.timedelta(days=1), None), datetime.timedelta(days=1))
 
 
-class TestFormField(PostgreSQLSimpleTestCase):
+class TestFormField(PostgreSQLTestCase):
 
     def test_valid(self):
         field = forms.JSONField()

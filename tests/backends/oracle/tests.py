@@ -24,8 +24,9 @@ class Tests(unittest.TestCase):
 
     def test_cursor_var(self):
         """Cursor variables can be passed as query parameters."""
+        from django.db.backends.oracle.base import Database
         with connection.cursor() as cursor:
-            var = cursor.var(str)
+            var = cursor.var(Database.STRING)
             cursor.execute("BEGIN %s := 'X'; END; ", [var])
             self.assertEqual(var.getvalue(), 'X')
 

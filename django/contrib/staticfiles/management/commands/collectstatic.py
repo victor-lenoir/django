@@ -1,4 +1,5 @@
 import os
+from collections import OrderedDict
 
 from django.apps import apps
 from django.contrib.staticfiles.finders import get_finders
@@ -99,7 +100,7 @@ class Command(BaseCommand):
         else:
             handler = self.copy_file
 
-        found_files = {}
+        found_files = OrderedDict()
         for finder in get_finders():
             for path, storage in finder.list(self.ignore_patterns):
                 # Prefix the relative path if the source storage contains it
@@ -270,6 +271,7 @@ class Command(BaseCommand):
                         # unmodified files.
                         can_skip_unmodified_files = not (self.symlink ^ os.path.islink(full_path))
                     else:
+                        full_path = None
                         # In remote storages, skipping is only based on the
                         # modified times since symlinks aren't relevant.
                         can_skip_unmodified_files = True
@@ -309,7 +311,10 @@ class Command(BaseCommand):
         else:
             self.log("Linking '%s'" % source_path, level=2)
             full_path = self.storage.path(prefixed_path)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            try:
+                os.makedirs(os.path.dirname(full_path))
+            except OSError:
+                pass
             try:
                 if os.path.lexists(full_path):
                     os.unlink(full_path)

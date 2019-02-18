@@ -309,8 +309,7 @@ class ModelPaginationTests(TestCase):
     """
     Test pagination with Django model instances
     """
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         # Prepare a list of objects for pagination.
         for x in range(1, 10):
             a = Article(headline='Article %s' % x, pub_date=datetime(2005, 7, 29))

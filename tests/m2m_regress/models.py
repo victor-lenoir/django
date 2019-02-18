@@ -73,11 +73,11 @@ class User(models.Model):
 class BadModelWithSplit(models.Model):
     name = models.CharField(max_length=1)
 
-    class Meta:
-        abstract = True
-
     def split(self):
         raise RuntimeError('split should not be called')
+
+    class Meta:
+        abstract = True
 
 
 class RegressionModelSplit(BadModelWithSplit):

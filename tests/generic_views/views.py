@@ -295,10 +295,6 @@ class BookSigningTodayArchive(BookSigningConfig, generic.TodayArchiveView):
     pass
 
 
-class BookArchiveWithoutDateField(generic.ArchiveIndexView):
-    queryset = Book.objects.all()
-
-
 class BookSigningDetail(BookSigningConfig, generic.DateDetailView):
     context_object_name = 'book'
 

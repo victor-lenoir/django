@@ -200,12 +200,12 @@ passed around inside the template code:
   to be interpreted as-is on the client side.
 
   Internally, these strings are of type
-  :class:`~django.utils.safestring.SafeString`. You can test for them
+  :class:`~django.utils.safestring.SafeText`. You can test for them
   using code like::
 
-      from django.utils.safestring import SafeString
+      from django.utils.safestring import SafeText
 
-      if isinstance(value, SafeString):
+      if isinstance(value, SafeText):
           # Do something with the "safe" string.
           ...
 
@@ -842,13 +842,13 @@ A naive implementation of ``CycleNode`` might look something like this::
 But, suppose we have two templates rendering the template snippet from above at
 the same time:
 
-#. Thread 1 performs its first loop iteration, ``CycleNode.render()``
+1. Thread 1 performs its first loop iteration, ``CycleNode.render()``
    returns 'row1'
-#. Thread 2 performs its first loop iteration, ``CycleNode.render()``
+2. Thread 2 performs its first loop iteration, ``CycleNode.render()``
    returns 'row2'
-#. Thread 1 performs its second loop iteration, ``CycleNode.render()``
+3. Thread 1 performs its second loop iteration, ``CycleNode.render()``
    returns 'row1'
-#. Thread 2 performs its second loop iteration, ``CycleNode.render()``
+4. Thread 2 performs its second loop iteration, ``CycleNode.render()``
    returns 'row2'
 
 The CycleNode is iterating, but it's iterating globally. As far as Thread 1

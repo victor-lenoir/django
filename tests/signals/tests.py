@@ -4,13 +4,13 @@ from django.apps.registry import Apps
 from django.db import models
 from django.db.models import signals
 from django.dispatch import receiver
-from django.test import SimpleTestCase, TestCase
+from django.test import TestCase
 from django.test.utils import isolate_apps
 
 from .models import Author, Book, Car, Person
 
 
-class BaseSignalSetup:
+class BaseSignalTest(TestCase):
     def setUp(self):
         # Save up the number of connected signals so that we can check at the
         # end that all the signals we register get properly unregistered (#9989)
@@ -32,7 +32,7 @@ class BaseSignalSetup:
         self.assertEqual(self.pre_signals, post_signals)
 
 
-class SignalTests(BaseSignalSetup, TestCase):
+class SignalTests(BaseSignalTest):
     def test_model_pre_init_and_post_init(self):
         data = []
 
@@ -281,7 +281,7 @@ class SignalTests(BaseSignalSetup, TestCase):
         ref.assert_not_called()
 
 
-class LazyModelRefTests(BaseSignalSetup, SimpleTestCase):
+class LazyModelRefTest(BaseSignalTest):
     def setUp(self):
         super().setUp()
         self.received = []

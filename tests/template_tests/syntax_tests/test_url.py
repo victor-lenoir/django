@@ -7,7 +7,6 @@ from ..utils import setup
 
 @override_settings(ROOT_URLCONF='template_tests.urls')
 class UrlTagTests(SimpleTestCase):
-    request_factory = RequestFactory()
 
     # Successes
     @setup({'url01': '{% url "client" client.id %}'})
@@ -228,7 +227,7 @@ class UrlTagTests(SimpleTestCase):
 
     @setup({'url-namespace01': '{% url "app:named.client" 42 %}'})
     def test_url_namespace01(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         request.resolver_match = resolve('/ns1/')
         template = self.engine.get_template('url-namespace01')
         context = RequestContext(request)
@@ -237,7 +236,7 @@ class UrlTagTests(SimpleTestCase):
 
     @setup({'url-namespace02': '{% url "app:named.client" 42 %}'})
     def test_url_namespace02(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         request.resolver_match = resolve('/ns2/')
         template = self.engine.get_template('url-namespace02')
         context = RequestContext(request)
@@ -246,7 +245,7 @@ class UrlTagTests(SimpleTestCase):
 
     @setup({'url-namespace03': '{% url "app:named.client" 42 %}'})
     def test_url_namespace03(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         template = self.engine.get_template('url-namespace03')
         context = RequestContext(request)
         output = template.render(context)
@@ -254,7 +253,7 @@ class UrlTagTests(SimpleTestCase):
 
     @setup({'url-namespace-no-current-app': '{% url "app:named.client" 42 %}'})
     def test_url_namespace_no_current_app(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         request.resolver_match = resolve('/ns1/')
         request.current_app = None
         template = self.engine.get_template('url-namespace-no-current-app')
@@ -264,7 +263,7 @@ class UrlTagTests(SimpleTestCase):
 
     @setup({'url-namespace-explicit-current-app': '{% url "app:named.client" 42 %}'})
     def test_url_namespace_explicit_current_app(self):
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         request.resolver_match = resolve('/ns1/')
         request.current_app = 'app'
         template = self.engine.get_template('url-namespace-explicit-current-app')

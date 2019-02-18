@@ -6,8 +6,7 @@ from .models import Cash, CashModel
 
 
 class FromDBValueTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         CashModel.objects.create(cash='12.50')
 
     def test_simple_load(self):

@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
+from django.test import TestCase
 
 
-class ValidationAssertions:
+class ValidationTestCase(TestCase):
     def assertFailsValidation(self, clean, failed_fields, **kwargs):
         with self.assertRaises(ValidationError) as cm:
             clean(**kwargs)

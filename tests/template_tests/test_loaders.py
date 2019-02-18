@@ -191,12 +191,11 @@ class FileSystemLoaderTests(SimpleTestCase):
             tmppath = os.path.join(tmpdir, tmpfile.name)
             os.chmod(tmppath, 0o0222)
             with self.set_dirs([tmpdir]):
-                with self.assertRaisesMessage(PermissionError, 'Permission denied'):
+                with self.assertRaisesMessage(IOError, 'Permission denied'):
                     self.engine.get_template(tmpfile.name)
 
     def test_notafile_error(self):
-        # Windows raises PermissionError when trying to open a directory.
-        with self.assertRaises(PermissionError if sys.platform.startswith('win') else IsADirectoryError):
+        with self.assertRaises(IOError):
             self.engine.get_template('first')
 
 

@@ -57,7 +57,8 @@ class HttpResponseBase:
         self._reason_phrase = reason
         self._charset = charset
         if content_type is None:
-            content_type = 'text/html; charset=%s' % self.charset
+            content_type = '%s; charset=%s' % (settings.DEFAULT_CONTENT_TYPE,
+                                               self.charset)
         self['Content-Type'] = content_type
 
     @property
@@ -251,13 +252,13 @@ class HttpResponseBase:
         signals.request_finished.send(sender=self._handler_class)
 
     def write(self, content):
-        raise OSError('This %s instance is not writable' % self.__class__.__name__)
+        raise IOError("This %s instance is not writable" % self.__class__.__name__)
 
     def flush(self):
         pass
 
     def tell(self):
-        raise OSError('This %s instance cannot tell its position' % self.__class__.__name__)
+        raise IOError("This %s instance cannot tell its position" % self.__class__.__name__)
 
     # These methods partially implement a stream-like object interface.
     # See https://docs.python.org/library/io.html#io.IOBase
@@ -272,7 +273,7 @@ class HttpResponseBase:
         return False
 
     def writelines(self, lines):
-        raise OSError('This %s instance is not writable' % self.__class__.__name__)
+        raise IOError("This %s instance is not writable" % self.__class__.__name__)
 
 
 class HttpResponse(HttpResponseBase):
@@ -426,7 +427,7 @@ class FileResponse(StreamingHttpResponse):
         elif hasattr(filelike, 'getbuffer'):
             self['Content-Length'] = filelike.getbuffer().nbytes
 
-        if self.get('Content-Type', '').startswith('text/html'):
+        if self.get('Content-Type', '').startswith(settings.DEFAULT_CONTENT_TYPE):
             if filename:
                 content_type, encoding = mimetypes.guess_type(filename)
                 # Encoding isn't set to prevent browsers from automatically

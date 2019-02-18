@@ -194,11 +194,7 @@ class RelatedFieldListFilter(FieldListFilter):
         return [self.lookup_kwarg, self.lookup_kwarg_isnull]
 
     def field_choices(self, field, request, model_admin):
-        ordering = ()
-        related_admin = model_admin.admin_site._registry.get(field.remote_field.model)
-        if related_admin is not None:
-            ordering = related_admin.get_ordering(request)
-        return field.get_choices(include_blank=False, ordering=ordering)
+        return field.get_choices(include_blank=False)
 
     def choices(self, changelist):
         yield {

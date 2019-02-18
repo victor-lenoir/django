@@ -32,8 +32,7 @@ class RelatedGeoModelTest(TestCase):
                 nm, st, lon, lat = ref
                 self.assertEqual(nm, c.name)
                 self.assertEqual(st, c.state)
-                self.assertAlmostEqual(lon, c.location.point.x, 6)
-                self.assertAlmostEqual(lat, c.location.point.y, 6)
+                self.assertEqual(Point(lon, lat, srid=c.location.point.srid), c.location.point)
 
     @skipUnlessDBFeature("supports_extent_aggr")
     def test_related_extent_aggregate(self):

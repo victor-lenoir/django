@@ -16,9 +16,8 @@ from .models import (
 
 class GetOrCreateTests(TestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        Person.objects.create(
+    def setUp(self):
+        self.lennon = Person.objects.create(
             first_name='John', last_name='Lennon', birthday=date(1940, 10, 9)
         )
 
@@ -190,9 +189,8 @@ class GetOrCreateTests(TestCase):
 
 class GetOrCreateTestsWithManualPKs(TestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        ManualPrimaryKeyTest.objects.create(id=1, data="Original")
+    def setUp(self):
+        self.first_pk = ManualPrimaryKeyTest.objects.create(id=1, data="Original")
 
     def test_create_with_duplicate_primary_key(self):
         """

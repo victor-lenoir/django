@@ -1,4 +1,4 @@
-from django.urls import include, path
+from django.conf.urls import include, url
 from django.views import View
 
 
@@ -15,11 +15,11 @@ class View3(View):
 
 
 nested = ([
-    path('view1/', view1, name='view1'),
-    path('view3/', View3.as_view(), name='view3'),
+    url(r'^view1/$', view1, name='view1'),
+    url(r'^view3/$', View3.as_view(), name='view3'),
 ], 'backend')
 
 urlpatterns = [
-    path('some/path/', include(nested, namespace='nested')),
-    path('view2/', view2, name='view2'),
+    url(r'^some/path/', include(nested, namespace='nested')),
+    url(r'^view2/$', view2, name='view2'),
 ]

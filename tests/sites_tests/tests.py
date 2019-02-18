@@ -18,12 +18,15 @@ from django.test.utils import captured_stdout
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.sites'})
 class SitesFrameworkTests(TestCase):
-    databases = {'default', 'other'}
+    multi_db = True
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.site = Site(id=settings.SITE_ID, domain='example.com', name='example.com')
-        cls.site.save()
+    def setUp(self):
+        self.site = Site(
+            id=settings.SITE_ID,
+            domain="example.com",
+            name="example.com",
+        )
+        self.site.save()
 
     def tearDown(self):
         Site.objects.clear_cache()
@@ -236,15 +239,12 @@ class JustOtherRouter:
 
 @modify_settings(INSTALLED_APPS={'append': 'django.contrib.sites'})
 class CreateDefaultSiteTests(TestCase):
-    databases = {'default', 'other'}
-
-    @classmethod
-    def setUpTestData(cls):
-        # Delete the site created as part of the default migration process.
-        Site.objects.all().delete()
+    multi_db = True
 
     def setUp(self):
         self.app_config = apps.get_app_config('sites')
+        # Delete the site created as part of the default migration process.
+        Site.objects.all().delete()
 
     def test_basic(self):
         """

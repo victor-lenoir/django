@@ -199,18 +199,6 @@ class ContentTypesTests(TestCase):
         ct_fetched = ContentType.objects.get_for_id(ct.pk)
         self.assertIsNone(ct_fetched.model_class())
 
-    def test_str(self):
-        ct = ContentType.objects.get(app_label='contenttypes_tests', model='site')
-        self.assertEqual(str(ct), 'contenttypes_tests | site')
-
-    def test_app_labeled_name(self):
-        ct = ContentType.objects.get(app_label='contenttypes_tests', model='site')
-        self.assertEqual(ct.app_labeled_name, 'contenttypes_tests | site')
-
-    def test_app_labeled_name_unknown_model(self):
-        ct = ContentType(app_label='contenttypes_tests', model='unknown')
-        self.assertEqual(ct.app_labeled_name, 'unknown')
-
 
 class TestRouter:
     def db_for_read(self, model, **hints):
@@ -222,7 +210,7 @@ class TestRouter:
 
 @override_settings(DATABASE_ROUTERS=[TestRouter()])
 class ContentTypesMultidbTests(TestCase):
-    databases = {'default', 'other'}
+    multi_db = True
 
     def test_multidb(self):
         """

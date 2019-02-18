@@ -1,7 +1,4 @@
-import sys
-
-from django.apps import apps
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.db.migrations.loader import MigrationLoader
 
@@ -48,15 +45,12 @@ class Command(BaseCommand):
             return self.show_list(connection, options['app_label'])
 
     def _validate_app_names(self, loader, app_names):
-        has_bad_names = False
+        invalid_apps = []
         for app_name in app_names:
-            try:
-                apps.get_app_config(app_name)
-            except LookupError as err:
-                self.stderr.write(str(err))
-                has_bad_names = True
-        if has_bad_names:
-            sys.exit(2)
+            if app_name not in loader.migrated_apps:
+                invalid_apps.append(app_name)
+        if invalid_apps:
+            raise CommandError('No migrations present for: %s' % (', '.join(sorted(invalid_apps))))
 
     def show_list(self, connection, app_names=None):
         """
@@ -124,7 +118,7 @@ class Command(BaseCommand):
             for parent in sorted(node.parents):
                 out.append("%s.%s" % parent.key)
             if out:
-                return " ... (%s)" % ", ".join(out)
+                return " … (%s)" % ", ".join(out)
             return ""
 
         for node in plan:
@@ -135,5 +129,3 @@ class Command(BaseCommand):
                 self.stdout.write("[X]  %s.%s%s" % (node.key[0], node.key[1], deps))
             else:
                 self.stdout.write("[ ]  %s.%s%s" % (node.key[0], node.key[1], deps))
-        if not plan:
-            self.stdout.write('(no migrations)', self.style.ERROR)

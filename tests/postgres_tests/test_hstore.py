@@ -2,9 +2,9 @@ import json
 
 from django.core import checks, exceptions, serializers
 from django.forms import Form
-from django.test.utils import isolate_apps
+from django.test.utils import isolate_apps, modify_settings
 
-from . import PostgreSQLSimpleTestCase, PostgreSQLTestCase
+from . import PostgreSQLTestCase
 from .models import HStoreModel, PostgreSQLModel
 
 try:
@@ -15,7 +15,12 @@ except ImportError:
     pass
 
 
-class SimpleTests(PostgreSQLTestCase):
+@modify_settings(INSTALLED_APPS={'append': 'django.contrib.postgres'})
+class HStoreTestCase(PostgreSQLTestCase):
+    pass
+
+
+class SimpleTests(HStoreTestCase):
     def test_save_load_success(self):
         value = {'a': 'b'}
         instance = HStoreModel(field=value)
@@ -64,17 +69,16 @@ class SimpleTests(PostgreSQLTestCase):
         self.assertEqual(instance.array_field, expected_value)
 
 
-class TestQuerying(PostgreSQLTestCase):
+class TestQuerying(HStoreTestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.objs = HStoreModel.objects.bulk_create([
-            HStoreModel(field={'a': 'b'}),
-            HStoreModel(field={'a': 'b', 'c': 'd'}),
-            HStoreModel(field={'c': 'd'}),
-            HStoreModel(field={}),
-            HStoreModel(field=None),
-        ])
+    def setUp(self):
+        self.objs = [
+            HStoreModel.objects.create(field={'a': 'b'}),
+            HStoreModel.objects.create(field={'a': 'b', 'c': 'd'}),
+            HStoreModel.objects.create(field={'c': 'd'}),
+            HStoreModel.objects.create(field={}),
+            HStoreModel.objects.create(field=None),
+        ]
 
     def test_exact(self):
         self.assertSequenceEqual(
@@ -187,7 +191,7 @@ class TestQuerying(PostgreSQLTestCase):
 
 
 @isolate_apps('postgres_tests')
-class TestChecks(PostgreSQLSimpleTestCase):
+class TestChecks(PostgreSQLTestCase):
 
     def test_invalid_default(self):
         class MyModel(PostgreSQLModel):
@@ -214,7 +218,7 @@ class TestChecks(PostgreSQLSimpleTestCase):
         self.assertEqual(MyModel().check(), [])
 
 
-class TestSerialization(PostgreSQLSimpleTestCase):
+class TestSerialization(HStoreTestCase):
     test_data = json.dumps([{
         'model': 'postgres_tests.hstoremodel',
         'pk': None,
@@ -244,7 +248,7 @@ class TestSerialization(PostgreSQLSimpleTestCase):
         self.assertEqual(instance.field, new_instance.field)
 
 
-class TestValidation(PostgreSQLSimpleTestCase):
+class TestValidation(HStoreTestCase):
 
     def test_not_a_string(self):
         field = HStoreField()
@@ -258,7 +262,7 @@ class TestValidation(PostgreSQLSimpleTestCase):
         self.assertEqual(field.clean({'a': None}, None), {'a': None})
 
 
-class TestFormField(PostgreSQLSimpleTestCase):
+class TestFormField(HStoreTestCase):
 
     def test_valid(self):
         field = forms.HStoreField()
@@ -321,7 +325,7 @@ class TestFormField(PostgreSQLSimpleTestCase):
         self.assertTrue(form_w_hstore.has_changed())
 
 
-class TestValidator(PostgreSQLSimpleTestCase):
+class TestValidator(HStoreTestCase):
 
     def test_simple_valid(self):
         validator = KeysValidator(keys=['a', 'b'])

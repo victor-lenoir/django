@@ -29,7 +29,8 @@ class FileUploadTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        os.makedirs(MEDIA_ROOT, exist_ok=True)
+        if not os.path.isdir(MEDIA_ROOT):
+            os.makedirs(MEDIA_ROOT)
 
     @classmethod
     def tearDownClass(cls):
@@ -527,7 +528,8 @@ class DirectoryCreationTests(SimpleTestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        os.makedirs(MEDIA_ROOT, exist_ok=True)
+        if not os.path.isdir(MEDIA_ROOT):
+            os.makedirs(MEDIA_ROOT)
 
     @classmethod
     def tearDownClass(cls):
@@ -546,13 +548,16 @@ class DirectoryCreationTests(SimpleTestCase):
             self.obj.testfile.save('foo.txt', SimpleUploadedFile('foo.txt', b'x'), save=False)
 
     def test_not_a_directory(self):
+        """The correct IOError is raised when the upload directory name exists but isn't a directory"""
         # Create a file with the upload directory name
         open(UPLOAD_TO, 'wb').close()
         self.addCleanup(os.remove, UPLOAD_TO)
-        msg = '%s exists and is not a directory.' % UPLOAD_TO
-        with self.assertRaisesMessage(FileExistsError, msg):
+        with self.assertRaises(IOError) as exc_info:
             with SimpleUploadedFile('foo.txt', b'x') as file:
                 self.obj.testfile.save('foo.txt', file, save=False)
+        # The test needs to be done on a specific string as IOError
+        # is raised even without the patch (just not early enough)
+        self.assertEqual(exc_info.exception.args[0], "%s exists and is not a directory." % UPLOAD_TO)
 
 
 class MultiParserTests(SimpleTestCase):

@@ -12,10 +12,9 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
     sql_delete_sequence = "DROP SEQUENCE IF EXISTS %(sequence)s CASCADE"
     sql_set_sequence_max = "SELECT setval('%(sequence)s', MAX(%(column)s)) FROM %(table)s"
 
-    sql_create_index = "CREATE INDEX %(name)s ON %(table)s%(using)s (%(columns)s)%(extra)s%(condition)s"
+    sql_create_index = "CREATE INDEX %(name)s ON %(table)s%(using)s (%(columns)s)%(extra)s"
     sql_delete_index = "DROP INDEX IF EXISTS %(name)s"
 
-    sql_create_column_inline_fk = 'REFERENCES %(to_table)s(%(to_column)s)%(deferrable)s'
     # Setting the constraint to IMMEDIATE runs any deferred checks to allow
     # dropping it in the same transaction.
     sql_delete_fk = "SET CONSTRAINTS %(name)s IMMEDIATE; ALTER TABLE %(table)s DROP CONSTRAINT %(name)s"
@@ -115,7 +114,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
             (old_type.startswith('citext') and not new_type.startswith('citext'))
         ):
             index_name = self._create_index_name(model._meta.db_table, [old_field.column], suffix='_like')
-            self.execute(self._delete_index_sql(model, index_name))
+            self.execute(self._delete_constraint_sql(self.sql_delete_index, model, index_name))
 
         super()._alter_field(
             model, old_field, new_field, old_type, new_type, old_db_params,
@@ -131,7 +130,7 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
         # Removed an index? Drop any PostgreSQL-specific indexes.
         if old_field.unique and not (new_field.db_index or new_field.unique):
             index_to_remove = self._create_index_name(model._meta.db_table, [old_field.column], suffix='_like')
-            self.execute(self._delete_index_sql(model, index_to_remove))
+            self.execute(self._delete_constraint_sql(self.sql_delete_index, model, index_to_remove))
 
     def _index_columns(self, table, columns, col_suffixes, opclasses):
         if opclasses:

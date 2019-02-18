@@ -1,4 +1,5 @@
 import collections
+import functools
 import re
 import warnings
 from itertools import chain
@@ -13,7 +14,10 @@ from django.db.models.sql.constants import (
 from django.db.models.sql.query import Query, get_order_dir
 from django.db.transaction import TransactionManagementError
 from django.db.utils import DatabaseError, NotSupportedError
-from django.utils.deprecation import RemovedInDjango31Warning
+from django.utils.deprecation import (
+    RemovedInDjango30Warning, RemovedInDjango31Warning,
+)
+from django.utils.inspect import func_supports_parameter
 
 FORCE = object()
 
@@ -317,7 +321,7 @@ class SQLCompiler:
                     ), False))
                 continue
 
-            if not self.query.extra or col not in self.query.extra:
+            if not self.query._extra or col not in self.query._extra:
                 # 'col' is of the form 'field' or 'field1__field2' or
                 # '-field1__field2__field', etc.
                 order_by.extend(self.find_ordering_name(
@@ -335,9 +339,8 @@ class SQLCompiler:
         seen = set()
 
         for expr, is_ref in order_by:
-            resolved = expr.resolve_expression(self.query, allow_joins=True, reuse=None)
             if self.query.combinator:
-                src = resolved.get_source_expressions()[0]
+                src = expr.get_source_expressions()[0]
                 # Relabel order by columns to raw numbers if this is a combined
                 # query; necessary since the columns can't be referenced by the
                 # fully qualified name and the simple column names may collide.
@@ -347,10 +350,12 @@ class SQLCompiler:
                     elif col_alias:
                         continue
                     if src == sel_expr:
-                        resolved.set_source_expressions([RawSQL('%d' % (idx + 1), ())])
+                        expr.set_source_expressions([RawSQL('%d' % (idx + 1), ())])
                         break
                 else:
                     raise DatabaseError('ORDER BY term does not match any column in the result set.')
+            resolved = expr.resolve_expression(
+                self.query, allow_joins=True, reuse=None)
             sql, params = self.compile(resolved)
             # Don't add the same column twice, but the order direction is
             # not taken into account so we strip it. When this entire method
@@ -424,17 +429,7 @@ class SQLCompiler:
                         *self.query.values_select,
                         *self.query.annotation_select,
                     ))
-                part_sql, part_args = compiler.as_sql()
-                if compiler.query.combinator:
-                    # Wrap in a subquery if wrapping in parentheses isn't
-                    # supported.
-                    if not features.supports_parentheses_in_compound:
-                        part_sql = 'SELECT * FROM ({})'.format(part_sql)
-                    # Add parentheses when combining with compound query if not
-                    # already added for all compound queries.
-                    elif not features.supports_slicing_ordering_in_compound:
-                        part_sql = '({})'.format(part_sql)
-                parts += ((part_sql, part_args),)
+                parts += (compiler.as_sql(),)
             except EmptyResultSet:
                 # Omit the empty queryset with UNION and with DIFFERENCE if the
                 # first queryset is nonempty.
@@ -1011,7 +1006,20 @@ class SQLCompiler:
                 backend_converters = self.connection.ops.get_db_converters(expression)
                 field_converters = expression.get_db_converters(self.connection)
                 if backend_converters or field_converters:
-                    converters[i] = (backend_converters + field_converters, expression)
+                    convs = []
+                    for conv in (backend_converters + field_converters):
+                        if func_supports_parameter(conv, 'context'):
+                            warnings.warn(
+                                'Remove the context parameter from %s.%s(). Support for it '
+                                'will be removed in Django 3.0.' % (
+                                    conv.__self__.__class__.__name__,
+                                    conv.__name__,
+                                ),
+                                RemovedInDjango30Warning,
+                            )
+                            conv = functools.partial(conv, context={})
+                        convs.append(conv)
+                    converters[i] = (convs, expression)
         return converters
 
     def apply_converters(self, rows, converters):
@@ -1191,15 +1199,9 @@ class SQLInsertCompiler(SQLCompiler):
                     'can only be used to update, not to insert.' % (value, field)
                 )
             if value.contains_aggregate:
-                raise FieldError(
-                    'Aggregate functions are not allowed in this query '
-                    '(%s=%r).' % (field.name, value)
-                )
+                raise FieldError("Aggregate functions are not allowed in this query")
             if value.contains_over_clause:
-                raise FieldError(
-                    'Window expressions are not allowed in this query (%s=%r).'
-                    % (field.name, value)
-                )
+                raise FieldError('Window expressions are not allowed in this query.')
         else:
             value = field.get_db_prep_save(value, connection=self.connection)
         return value
@@ -1279,8 +1281,8 @@ class SQLInsertCompiler(SQLCompiler):
         ignore_conflicts_suffix_sql = self.connection.ops.ignore_conflicts_suffix_sql(
             ignore_conflicts=self.query.ignore_conflicts
         )
-        if self.return_id and self.connection.features.can_return_columns_from_insert:
-            if self.connection.features.can_return_rows_from_bulk_insert:
+        if self.return_id and self.connection.features.can_return_id_from_insert:
+            if self.connection.features.can_return_ids_from_bulk_insert:
                 result.append(self.connection.ops.bulk_insert_sql(fields, placeholder_rows))
                 params = param_rows
             else:
@@ -1313,7 +1315,7 @@ class SQLInsertCompiler(SQLCompiler):
     def execute_sql(self, return_id=False):
         assert not (
             return_id and len(self.query.objs) != 1 and
-            not self.connection.features.can_return_rows_from_bulk_insert
+            not self.connection.features.can_return_ids_from_bulk_insert
         )
         self.return_id = return_id
         with self.connection.cursor() as cursor:
@@ -1321,9 +1323,9 @@ class SQLInsertCompiler(SQLCompiler):
                 cursor.execute(sql, params)
             if not return_id:
                 return
-            if self.connection.features.can_return_rows_from_bulk_insert and len(self.query.objs) > 1:
+            if self.connection.features.can_return_ids_from_bulk_insert and len(self.query.objs) > 1:
                 return self.connection.ops.fetch_returned_insert_ids(cursor)
-            if self.connection.features.can_return_columns_from_insert:
+            if self.connection.features.can_return_id_from_insert:
                 assert len(self.query.objs) == 1
                 return self.connection.ops.fetch_returned_insert_id(cursor)
             return self.connection.ops.last_insert_id(
@@ -1362,15 +1364,9 @@ class SQLUpdateCompiler(SQLCompiler):
             if hasattr(val, 'resolve_expression'):
                 val = val.resolve_expression(self.query, allow_joins=False, for_save=True)
                 if val.contains_aggregate:
-                    raise FieldError(
-                        'Aggregate functions are not allowed in this query '
-                        '(%s=%r).' % (field.name, val)
-                    )
+                    raise FieldError("Aggregate functions are not allowed in this query")
                 if val.contains_over_clause:
-                    raise FieldError(
-                        'Window expressions are not allowed in this query '
-                        '(%s=%r).' % (field.name, val)
-                    )
+                    raise FieldError('Window expressions are not allowed in this query.')
             elif hasattr(val, 'prepare_database_save'):
                 if field.remote_field:
                     val = field.get_db_prep_save(
@@ -1450,7 +1446,7 @@ class SQLUpdateCompiler(SQLCompiler):
         query = self.query.chain(klass=Query)
         query.select_related = False
         query.clear_ordering(True)
-        query.extra = {}
+        query._extra = {}
         query.select = []
         query.add_fields([query.get_meta().pk.name])
         super().pre_sql_setup()

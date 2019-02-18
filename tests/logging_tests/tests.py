@@ -246,7 +246,6 @@ class CallbackFilterTest(SimpleTestCase):
 
 class AdminEmailHandlerTest(SimpleTestCase):
     logger = logging.getLogger('django')
-    request_factory = RequestFactory()
 
     def get_admin_email_handler(self, logger):
         # AdminEmailHandler does not get filtered out
@@ -308,7 +307,8 @@ class AdminEmailHandlerTest(SimpleTestCase):
         orig_filters = admin_email_handler.filters
         try:
             admin_email_handler.filters = []
-            request = self.request_factory.get('/')
+            rf = RequestFactory()
+            request = rf.get('/')
             self.logger.error(
                 message, token1, token2,
                 extra={
@@ -388,8 +388,9 @@ class AdminEmailHandlerTest(SimpleTestCase):
         """
         handler = self.get_admin_email_handler(self.logger)
         record = self.logger.makeRecord('name', logging.ERROR, 'function', 'lno', 'message', None, None)
+        rf = RequestFactory()
         url_path = '/º'
-        record.request = self.request_factory.get(url_path)
+        record.request = rf.get(url_path)
         handler.emit(record)
         self.assertEqual(len(mail.outbox), 1)
         msg = mail.outbox[0]
@@ -439,7 +440,6 @@ class SettingsConfigTest(AdminScriptTestCase):
     a circular import error.
     """
     def setUp(self):
-        super().setUp()
         log_config = """{
     'version': 1,
     'handlers': {
@@ -450,6 +450,9 @@ class SettingsConfigTest(AdminScriptTestCase):
     }
 }"""
         self.write_settings('settings.py', sdict={'LOGGING': log_config})
+
+    def tearDown(self):
+        self.remove_settings('settings.py')
 
     def test_circular_dependency(self):
         # validate is just an example command to trigger settings configuration
@@ -516,7 +519,6 @@ class SettingsCustomLoggingTest(AdminScriptTestCase):
     callable in LOGGING_CONFIG (i.e., logging.config.fileConfig).
     """
     def setUp(self):
-        super().setUp()
         logging_conf = """
 [loggers]
 keys=root
@@ -536,13 +538,13 @@ format=%(message)s
         self.temp_file = NamedTemporaryFile()
         self.temp_file.write(logging_conf.encode())
         self.temp_file.flush()
-        self.write_settings('settings.py', sdict={
-            'LOGGING_CONFIG': '"logging.config.fileConfig"',
-            'LOGGING': 'r"%s"' % self.temp_file.name,
-        })
+        sdict = {'LOGGING_CONFIG': '"logging.config.fileConfig"',
+                 'LOGGING': 'r"%s"' % self.temp_file.name}
+        self.write_settings('settings.py', sdict=sdict)
 
     def tearDown(self):
         self.temp_file.close()
+        self.remove_settings('settings.py')
 
     def test_custom_logging(self):
         out, err = self.run_manage(['check'])

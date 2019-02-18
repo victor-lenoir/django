@@ -63,9 +63,12 @@ class OperationTestCase(TransactionTestCase):
         self.current_state = self.apply_operations('gis', ProjectState(), operations)
 
     def assertGeometryColumnsCount(self, expected_count):
+        table_name = 'gis_neighborhood'
+        if connection.features.uppercases_column_names:
+            table_name = table_name.upper()
         self.assertEqual(
             GeometryColumns.objects.filter(**{
-                '%s__iexact' % GeometryColumns.table_name_col(): 'gis_neighborhood',
+                GeometryColumns.table_name_col(): table_name,
             }).count(),
             expected_count
         )

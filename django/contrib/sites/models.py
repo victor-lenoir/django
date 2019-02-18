@@ -84,7 +84,6 @@ class Site(models.Model):
         unique=True,
     )
     name = models.CharField(_('display name'), max_length=50)
-
     objects = SiteManager()
 
     class Meta:

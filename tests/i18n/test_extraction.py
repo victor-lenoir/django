@@ -37,11 +37,12 @@ class ExtractorTests(POFileAssertionMixin, RunInTmpDirMixin, SimpleTestCase):
     PO_FILE = 'locale/%s/LC_MESSAGES/django.po' % LOCALE
 
     def _run_makemessages(self, **options):
+        os.chdir(self.test_dir)
         out = StringIO()
         management.call_command('makemessages', locale=[LOCALE], verbosity=2, stdout=out, **options)
         output = out.getvalue()
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
         return output, po_contents
 
@@ -58,7 +59,7 @@ class ExtractorTests(POFileAssertionMixin, RunInTmpDirMixin, SimpleTestCase):
         return self.assertTrue(not re.search('^msgid %s' % msgid, s, re.MULTILINE))
 
     def _assertPoLocComment(self, assert_presence, po_filename, line_number, *comment_parts):
-        with open(po_filename) as fp:
+        with open(po_filename, 'r') as fp:
             po_contents = fp.read()
         if os.name == 'nt':
             # #: .\path\to\file.html:123
@@ -135,7 +136,7 @@ class BasicExtractorTests(ExtractorTests):
         """
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE, encoding='utf-8') as fp:
+        with open(self.PO_FILE, 'r', encoding='utf-8') as fp:
             po_contents = fp.read()
             # Check two random strings
             self.assertIn('#. Translators: One-line translator comment #1', po_contents)
@@ -144,7 +145,7 @@ class BasicExtractorTests(ExtractorTests):
     def test_comments_extractor(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE, encoding='utf-8') as fp:
+        with open(self.PO_FILE, 'r', encoding='utf-8') as fp:
             po_contents = fp.read()
             self.assertNotIn('This comment should not be extracted', po_contents)
 
@@ -177,14 +178,14 @@ class BasicExtractorTests(ExtractorTests):
     def test_special_char_extracted(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE, encoding='utf-8') as fp:
+        with open(self.PO_FILE, 'r', encoding='utf-8') as fp:
             po_contents = fp.read()
             self.assertMsgId("Non-breaking space\u00a0:", po_contents)
 
     def test_blocktrans_trimmed(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             # should not be trimmed
             self.assertNotMsgId('Text with a few line breaks.', po_contents)
@@ -228,7 +229,7 @@ class BasicExtractorTests(ExtractorTests):
         """
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             # {% trans %}
             self.assertIn('msgctxt "Special trans context #1"', po_contents)
@@ -258,7 +259,7 @@ class BasicExtractorTests(ExtractorTests):
     def test_context_in_single_quotes(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             # {% trans %}
             self.assertIn('msgctxt "Context wrapped in double quotes"', po_contents)
@@ -298,7 +299,7 @@ class BasicExtractorTests(ExtractorTests):
             )
         # Now test .po file contents
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
 
             self.assertMsgId('Translatable literal #9a', po_contents)
@@ -390,7 +391,7 @@ class BasicExtractorTests(ExtractorTests):
         shutil.copyfile(BR_PO_BASE + '.pristine', BR_PO_BASE + '.po')
         management.call_command('makemessages', locale=['pt_BR'], verbosity=0)
         self.assertTrue(os.path.exists(BR_PO_BASE + '.po'))
-        with open(BR_PO_BASE + '.po', encoding='utf-8') as fp:
+        with open(BR_PO_BASE + '.po', 'r', encoding='utf-8') as fp:
             po_contents = fp.read()
             self.assertMsgStr("Größe", po_contents)
 
@@ -409,7 +410,7 @@ class BasicExtractorTests(ExtractorTests):
         with tempfile.NamedTemporaryFile() as pot_file:
             pot_filename = pot_file.name
         write_pot_file(pot_filename, msgs)
-        with open(pot_filename, encoding='utf-8') as fp:
+        with open(pot_filename, 'r', encoding='utf-8') as fp:
             pot_contents = fp.read()
             self.assertIn('Content-Type: text/plain; charset=UTF-8', pot_contents)
             self.assertIn('mañana; charset=CHARSET', pot_contents)
@@ -495,13 +496,17 @@ class SymlinkExtractorTests(ExtractorTests):
         self.symlinked_dir = os.path.join(self.test_dir, 'templates_symlinked')
 
     def test_symlink(self):
-        if symlinks_supported():
-            os.symlink(os.path.join(self.test_dir, 'templates'), self.symlinked_dir)
+        if os.path.exists(self.symlinked_dir):
+            self.assertTrue(os.path.islink(self.symlinked_dir))
         else:
-            self.skipTest("os.symlink() not available on this OS + Python version combination.")
+            if symlinks_supported():
+                os.symlink(os.path.join(self.test_dir, 'templates'), self.symlinked_dir)
+            else:
+                self.skipTest("os.symlink() not available on this OS + Python version combination.")
+        os.chdir(self.test_dir)
         management.call_command('makemessages', locale=[LOCALE], verbosity=0, symlinks=True)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             self.assertMsgId('This literal should be included.', po_contents)
         self.assertLocationCommentPresent(self.PO_FILE, None, 'templates_symlinked', 'test.html')
@@ -514,7 +519,7 @@ class CopyPluralFormsExtractorTests(ExtractorTests):
     def test_copy_plural_forms(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             self.assertIn('Plural-Forms: nplurals=2; plural=(n != 1)', po_contents)
 
@@ -522,7 +527,7 @@ class CopyPluralFormsExtractorTests(ExtractorTests):
         """Ticket #20311."""
         management.call_command('makemessages', locale=['es'], extensions=['djtpl'], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE_ES))
-        with open(self.PO_FILE_ES, encoding='utf-8') as fp:
+        with open(self.PO_FILE_ES, 'r', encoding='utf-8') as fp:
             po_contents = fp.read()
             found = re.findall(r'^(?P<value>"Plural-Forms.+?\\n")\s*$', po_contents, re.MULTILINE | re.DOTALL)
             self.assertEqual(1, len(found))
@@ -535,7 +540,7 @@ class CopyPluralFormsExtractorTests(ExtractorTests):
         """
         management.call_command('makemessages', locale=[LOCALE], extensions=['html', 'djtpl'], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             self.assertNotIn("#-#-#-#-#  django.pot (PACKAGE VERSION)  #-#-#-#-#\\n", po_contents)
             self.assertMsgId('First `trans`, then `blocktrans` with a plural', po_contents)
@@ -547,7 +552,7 @@ class NoWrapExtractorTests(ExtractorTests):
     def test_no_wrap_enabled(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0, no_wrap=True)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             self.assertMsgId(
                 'This literal should also be included wrapped or not wrapped '
@@ -558,7 +563,7 @@ class NoWrapExtractorTests(ExtractorTests):
     def test_no_wrap_disabled(self):
         management.call_command('makemessages', locale=[LOCALE], verbosity=0, no_wrap=False)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
             self.assertMsgId(
                 '""\n"This literal should also be included wrapped or not '
@@ -590,7 +595,7 @@ class LocationCommentsTests(ExtractorTests):
         """
         management.call_command('makemessages', locale=[LOCALE], verbosity=0)
         self.assertTrue(os.path.exists(self.PO_FILE))
-        with open(self.PO_FILE) as fp:
+        with open(self.PO_FILE, 'r') as fp:
             po_contents = fp.read()
         self.assertMsgId('#: templates/test.html.py', po_contents)
         self.assertLocationCommentNotPresent(self.PO_FILE, None, '.html.py')
@@ -748,11 +753,11 @@ class CustomLayoutExtractionTests(ExtractorTests):
             self.assertTrue(os.path.exists(project_de_locale))
             self.assertTrue(os.path.exists(app_de_locale))
 
-            with open(project_de_locale) as fp:
+            with open(project_de_locale, 'r') as fp:
                 po_contents = fp.read()
                 self.assertMsgId('This app has no locale directory', po_contents)
                 self.assertMsgId('This is a project-level string', po_contents)
-            with open(app_de_locale) as fp:
+            with open(app_de_locale, 'r') as fp:
                 po_contents = fp.read()
                 self.assertMsgId('This app has a locale directory', po_contents)
 

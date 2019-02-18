@@ -107,7 +107,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         except ValueError:
             sql = field_name
         else:
-            format_str = ''.join(format[:i] + format_def[i:])
+            format_str = ''.join([f for f in format[:i]] + [f for f in format_def[i:]])
             sql = "CAST(DATE_FORMAT(%s, '%s') AS DATETIME)" % (field_name, format_str)
         return sql
 
@@ -138,10 +138,10 @@ class DatabaseOperations(BaseDatabaseOperations):
         return [(None, ("NULL", [], False))]
 
     def last_executed_query(self, cursor, sql, params):
-        # With MySQLdb, cursor objects have an (undocumented) "_executed"
+        # With MySQLdb, cursor objects have an (undocumented) "_last_executed"
         # attribute where the exact query sent to the database is saved.
         # See MySQLdb/cursors.py in the source distribution.
-        query = getattr(cursor, '_executed', None)
+        query = getattr(cursor, '_last_executed', None)
         if query is not None:
             query = query.decode(errors='replace')
         return query

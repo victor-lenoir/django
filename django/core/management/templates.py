@@ -120,7 +120,8 @@ class TemplateCommand(BaseCommand):
             relative_dir = path_rest.replace(base_name, name)
             if relative_dir:
                 target_dir = path.join(top_dir, relative_dir)
-                os.makedirs(target_dir, exist_ok=True)
+                if not path.exists(target_dir):
+                    os.mkdir(target_dir)
 
             for dirname in dirs[:]:
                 if dirname.startswith('.') or dirname == '__pycache__':
@@ -147,7 +148,7 @@ class TemplateCommand(BaseCommand):
                 # Only render the Python files, as we don't want to
                 # accidentally render Django templates files
                 if new_path.endswith(extensions) or filename in extra_files:
-                    with open(old_path, encoding='utf-8') as template_file:
+                    with open(old_path, 'r', encoding='utf-8') as template_file:
                         content = template_file.read()
                     template = Engine().from_string(content)
                     content = template.render(context)
@@ -256,7 +257,7 @@ class TemplateCommand(BaseCommand):
             self.stdout.write("Downloading %s\n" % display_url)
         try:
             the_path, info = urlretrieve(url, path.join(tempdir, filename))
-        except OSError as e:
+        except IOError as e:
             raise CommandError("couldn't download URL %s to %s: %s" %
                                (url, filename, e))
 
@@ -311,7 +312,7 @@ class TemplateCommand(BaseCommand):
         try:
             archive.extract(filename, tempdir)
             return tempdir
-        except (archive.ArchiveException, OSError) as e:
+        except (archive.ArchiveException, IOError) as e:
             raise CommandError("couldn't extract file %s to %s: %s" %
                                (filename, tempdir, e))
 

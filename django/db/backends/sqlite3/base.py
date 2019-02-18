@@ -1,5 +1,5 @@
 """
-SQLite backend for the sqlite3 module in the standard library.
+SQLite3 backend for the sqlite3 module in the standard library.
 """
 import datetime
 import decimal
@@ -7,9 +7,7 @@ import functools
 import math
 import operator
 import re
-import statistics
 import warnings
-from itertools import chain
 from sqlite3 import dbapi2 as Database
 
 import pytz
@@ -49,21 +47,6 @@ def none_guard(func):
         return None if None in args else func(*args, **kwargs)
     return wrapper
 
-
-def list_aggregate(function):
-    """
-    Return an aggregate class that accumulates values in a list and applies
-    the provided function to the data.
-    """
-    return type('ListAggregate', (list,), {'finalize': function, 'step': list.append})
-
-
-def check_sqlite_version():
-    if Database.sqlite_version_info < (3, 8, 3):
-        raise ImproperlyConfigured('SQLite 3.8.3 or later is required (found %s).' % Database.sqlite_version)
-
-
-check_sqlite_version()
 
 Database.register_converter("bool", b'1'.__eq__)
 Database.register_converter("time", decoder(parse_time))
@@ -222,15 +205,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         conn.create_function('POWER', 2, none_guard(operator.pow))
         conn.create_function('RADIANS', 1, none_guard(math.radians))
         conn.create_function('REPEAT', 2, none_guard(operator.mul))
-        conn.create_function('REVERSE', 1, none_guard(lambda x: x[::-1]))
         conn.create_function('RPAD', 3, _sqlite_rpad)
         conn.create_function('SIN', 1, none_guard(math.sin))
         conn.create_function('SQRT', 1, none_guard(math.sqrt))
         conn.create_function('TAN', 1, none_guard(math.tan))
-        conn.create_aggregate('STDDEV_POP', 1, list_aggregate(statistics.pstdev))
-        conn.create_aggregate('STDDEV_SAMP', 1, list_aggregate(statistics.stdev))
-        conn.create_aggregate('VAR_POP', 1, list_aggregate(statistics.pvariance))
-        conn.create_aggregate('VAR_SAMP', 1, list_aggregate(statistics.variance))
         conn.execute('PRAGMA foreign_keys = ON')
         return conn
 
@@ -249,12 +227,16 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             BaseDatabaseWrapper.close(self)
 
     def _savepoint_allowed(self):
+        # Two conditions are required here:
+        # - A sufficiently recent version of SQLite to support savepoints,
+        # - Being in a transaction, which can only happen inside 'atomic'.
+
         # When 'isolation_level' is not None, sqlite3 commits before each
         # savepoint; it's a bug. When it is None, savepoints don't make sense
         # because autocommit is enabled. The only exception is inside 'atomic'
         # blocks. To work around that bug, on SQLite, 'atomic' starts a
         # transaction explicitly rather than simply disable autocommit.
-        return self.in_atomic_block
+        return self.features.uses_savepoints and self.in_atomic_block
 
     def _set_autocommit(self, autocommit):
         if autocommit:
@@ -269,13 +251,11 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             self.connection.isolation_level = level
 
     def disable_constraint_checking(self):
-        with self.cursor() as cursor:
-            cursor.execute('PRAGMA foreign_keys = OFF')
-            # Foreign key constraints cannot be turned off while in a multi-
-            # statement transaction. Fetch the current state of the pragma
-            # to determine if constraints are effectively disabled.
-            enabled = cursor.execute('PRAGMA foreign_keys').fetchone()[0]
-        return not bool(enabled)
+        if self.in_atomic_block:
+            # sqlite3 cannot disable constraint checking inside a transaction.
+            return False
+        self.cursor().execute('PRAGMA foreign_keys = OFF')
+        return True
 
     def enable_constraint_checking(self):
         self.cursor().execute('PRAGMA foreign_keys = ON')
@@ -288,68 +268,37 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         determine if rows with invalid references were entered while constraint
         checks were off.
         """
-        if self.features.supports_pragma_foreign_key_check:
-            with self.cursor() as cursor:
-                if table_names is None:
-                    violations = self.cursor().execute('PRAGMA foreign_key_check').fetchall()
-                else:
-                    violations = chain.from_iterable(
-                        cursor.execute('PRAGMA foreign_key_check(%s)' % table_name).fetchall()
-                        for table_name in table_names
-                    )
-                # See https://www.sqlite.org/pragma.html#pragma_foreign_key_check
-                for table_name, rowid, referenced_table_name, foreign_key_index in violations:
-                    foreign_key = cursor.execute(
-                        'PRAGMA foreign_key_list(%s)' % table_name
-                    ).fetchall()[foreign_key_index]
-                    column_name, referenced_column_name = foreign_key[3:5]
-                    primary_key_column_name = self.introspection.get_primary_key_column(cursor, table_name)
-                    primary_key_value, bad_value = cursor.execute(
-                        'SELECT %s, %s FROM %s WHERE rowid = %%s' % (
-                            primary_key_column_name, column_name, table_name
-                        ),
-                        (rowid,),
-                    ).fetchone()
-                    raise utils.IntegrityError(
-                        "The row in table '%s' with primary key '%s' has an "
-                        "invalid foreign key: %s.%s contains a value '%s' that "
-                        "does not have a corresponding value in %s.%s." % (
-                            table_name, primary_key_value, table_name, column_name,
-                            bad_value, referenced_table_name, referenced_column_name
+        with self.cursor() as cursor:
+            if table_names is None:
+                table_names = self.introspection.table_names(cursor)
+            for table_name in table_names:
+                primary_key_column_name = self.introspection.get_primary_key_column(cursor, table_name)
+                if not primary_key_column_name:
+                    continue
+                key_columns = self.introspection.get_key_columns(cursor, table_name)
+                for column_name, referenced_table_name, referenced_column_name in key_columns:
+                    cursor.execute(
+                        """
+                        SELECT REFERRING.`%s`, REFERRING.`%s` FROM `%s` as REFERRING
+                        LEFT JOIN `%s` as REFERRED
+                        ON (REFERRING.`%s` = REFERRED.`%s`)
+                        WHERE REFERRING.`%s` IS NOT NULL AND REFERRED.`%s` IS NULL
+                        """
+                        % (
+                            primary_key_column_name, column_name, table_name,
+                            referenced_table_name, column_name, referenced_column_name,
+                            column_name, referenced_column_name,
                         )
                     )
-        else:
-            with self.cursor() as cursor:
-                if table_names is None:
-                    table_names = self.introspection.table_names(cursor)
-                for table_name in table_names:
-                    primary_key_column_name = self.introspection.get_primary_key_column(cursor, table_name)
-                    if not primary_key_column_name:
-                        continue
-                    key_columns = self.introspection.get_key_columns(cursor, table_name)
-                    for column_name, referenced_table_name, referenced_column_name in key_columns:
-                        cursor.execute(
-                            """
-                            SELECT REFERRING.`%s`, REFERRING.`%s` FROM `%s` as REFERRING
-                            LEFT JOIN `%s` as REFERRED
-                            ON (REFERRING.`%s` = REFERRED.`%s`)
-                            WHERE REFERRING.`%s` IS NOT NULL AND REFERRED.`%s` IS NULL
-                            """
-                            % (
-                                primary_key_column_name, column_name, table_name,
-                                referenced_table_name, column_name, referenced_column_name,
-                                column_name, referenced_column_name,
+                    for bad_row in cursor.fetchall():
+                        raise utils.IntegrityError(
+                            "The row in table '%s' with primary key '%s' has an "
+                            "invalid foreign key: %s.%s contains a value '%s' that "
+                            "does not have a corresponding value in %s.%s." % (
+                                table_name, bad_row[0], table_name, column_name,
+                                bad_row[1], referenced_table_name, referenced_column_name,
                             )
                         )
-                        for bad_row in cursor.fetchall():
-                            raise utils.IntegrityError(
-                                "The row in table '%s' with primary key '%s' has an "
-                                "invalid foreign key: %s.%s contains a value '%s' that "
-                                "does not have a corresponding value in %s.%s." % (
-                                    table_name, bad_row[0], table_name, column_name,
-                                    bad_row[1], referenced_table_name, referenced_column_name,
-                                )
-                            )
 
     def is_usable(self):
         return True

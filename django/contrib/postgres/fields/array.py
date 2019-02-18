@@ -6,6 +6,7 @@ from django.contrib.postgres.validators import ArrayMaxLengthValidator
 from django.core import checks, exceptions
 from django.db.models import Field, IntegerField, Transform
 from django.db.models.lookups import Exact, In
+from django.utils.inspect import func_supports_parameter
 from django.utils.translation import gettext_lazy as _
 
 from ..utils import prefix_validation_error
@@ -111,7 +112,9 @@ class ArrayField(CheckFieldDefaultMixin, Field):
         if value is None:
             return value
         return [
-            self.base_field.from_db_value(item, expression, connection)
+            self.base_field.from_db_value(item, expression, connection, {})
+            if func_supports_parameter(self.base_field.from_db_value, 'context')  # RemovedInDjango30Warning
+            else self.base_field.from_db_value(item, expression, connection)
             for item in value
         ]
 

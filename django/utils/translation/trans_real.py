@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import warnings
+from collections import OrderedDict
 from threading import local
 
 from django.apps import apps
@@ -15,7 +16,7 @@ from django.core.signals import setting_changed
 from django.dispatch import receiver
 from django.utils.safestring import SafeData, mark_safe
 
-from . import to_language, to_locale
+from . import LANGUAGE_SESSION_KEY, to_language, to_locale
 
 # Translations are cached in a dictionary for every language.
 # The active translations are stored by threadid to make them thread local.
@@ -98,7 +99,7 @@ class DjangoTranslation(gettext_module.GNUTranslations):
         self._add_local_translations()
         if self.__language == settings.LANGUAGE_CODE and self.domain == 'django' and self._catalog is None:
             # default lang should have at least one translation file available.
-            raise OSError('No translation files found for default language %s.' % settings.LANGUAGE_CODE)
+            raise IOError("No translation files found for default language %s." % settings.LANGUAGE_CODE)
         self._add_fallback(localedirs)
         if self._catalog is None:
             # No catalogs found for this language, set an empty catalog.
@@ -119,6 +120,7 @@ class DjangoTranslation(gettext_module.GNUTranslations):
             domain=self.domain,
             localedir=localedir,
             languages=[self.__locale],
+            codeset='utf-8',
             fallback=use_null_fallback,
         )
 
@@ -384,9 +386,9 @@ def check_for_language(lang_code):
 @functools.lru_cache()
 def get_languages():
     """
-    Cache of settings.LANGUAGES in a dictionary for easy lookups by key.
+    Cache of settings.LANGUAGES in an OrderedDict for easy lookups by key.
     """
-    return dict(settings.LANGUAGES)
+    return OrderedDict(settings.LANGUAGES)
 
 
 @functools.lru_cache(maxsize=1000)
@@ -456,9 +458,14 @@ def get_language_from_request(request, check_path=False):
         if lang_code is not None:
             return lang_code
 
+    supported_lang_codes = get_languages()
+
+    if hasattr(request, 'session'):
+        lang_code = request.session.get(LANGUAGE_SESSION_KEY)
+        if lang_code in supported_lang_codes and lang_code is not None and check_for_language(lang_code):
+            return lang_code
+
     lang_code = request.COOKIES.get(settings.LANGUAGE_COOKIE_NAME)
-    if lang_code is not None and lang_code in get_languages() and check_for_language(lang_code):
-        return lang_code
 
     try:
         return get_supported_language_variant(lang_code)

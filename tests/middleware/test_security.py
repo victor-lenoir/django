@@ -44,117 +44,117 @@ class SecurityMiddlewareTest(SimpleTestCase):
     def test_sts_on(self):
         """
         With HSTS_SECONDS=3600, the middleware adds
-        "Strict-Transport-Security: max-age=3600" to the response.
+        "strict-transport-security: max-age=3600" to the response.
         """
         self.assertEqual(
-            self.process_response(secure=True)["Strict-Transport-Security"],
+            self.process_response(secure=True)["strict-transport-security"],
             'max-age=3600',
         )
 
     @override_settings(SECURE_HSTS_SECONDS=3600)
     def test_sts_already_present(self):
         """
-        The middleware will not override a "Strict-Transport-Security" header
+        The middleware will not override a "strict-transport-security" header
         already present in the response.
         """
         response = self.process_response(
             secure=True,
-            headers={"Strict-Transport-Security": "max-age=7200"})
-        self.assertEqual(response["Strict-Transport-Security"], "max-age=7200")
+            headers={"strict-transport-security": "max-age=7200"})
+        self.assertEqual(response["strict-transport-security"], "max-age=7200")
 
     @override_settings(HSTS_SECONDS=3600)
     def test_sts_only_if_secure(self):
         """
-        The "Strict-Transport-Security" header is not added to responses going
+        The "strict-transport-security" header is not added to responses going
         over an insecure connection.
         """
-        self.assertNotIn("Strict-Transport-Security", self.process_response(secure=False))
+        self.assertNotIn("strict-transport-security", self.process_response(secure=False))
 
     @override_settings(HSTS_SECONDS=0)
     def test_sts_off(self):
         """
         With HSTS_SECONDS of 0, the middleware does not add a
-        "Strict-Transport-Security" header to the response.
+        "strict-transport-security" header to the response.
         """
-        self.assertNotIn("Strict-Transport-Security", self.process_response(secure=True))
+        self.assertNotIn("strict-transport-security", self.process_response(secure=True))
 
     @override_settings(
         SECURE_HSTS_SECONDS=600, SECURE_HSTS_INCLUDE_SUBDOMAINS=True)
     def test_sts_include_subdomains(self):
         """
         With HSTS_SECONDS non-zero and HSTS_INCLUDE_SUBDOMAINS
-        True, the middleware adds a "Strict-Transport-Security" header with the
+        True, the middleware adds a "strict-transport-security" header with the
         "includeSubDomains" directive to the response.
         """
         response = self.process_response(secure=True)
-        self.assertEqual(response["Strict-Transport-Security"], "max-age=600; includeSubDomains")
+        self.assertEqual(response["strict-transport-security"], "max-age=600; includeSubDomains")
 
     @override_settings(
         SECURE_HSTS_SECONDS=600, SECURE_HSTS_INCLUDE_SUBDOMAINS=False)
     def test_sts_no_include_subdomains(self):
         """
         With HSTS_SECONDS non-zero and HSTS_INCLUDE_SUBDOMAINS
-        False, the middleware adds a "Strict-Transport-Security" header without
+        False, the middleware adds a "strict-transport-security" header without
         the "includeSubDomains" directive to the response.
         """
         response = self.process_response(secure=True)
-        self.assertEqual(response["Strict-Transport-Security"], "max-age=600")
+        self.assertEqual(response["strict-transport-security"], "max-age=600")
 
     @override_settings(SECURE_HSTS_SECONDS=10886400, SECURE_HSTS_PRELOAD=True)
     def test_sts_preload(self):
         """
         With HSTS_SECONDS non-zero and SECURE_HSTS_PRELOAD True, the middleware
-        adds a "Strict-Transport-Security" header with the "preload" directive
+        adds a "strict-transport-security" header with the "preload" directive
         to the response.
         """
         response = self.process_response(secure=True)
-        self.assertEqual(response["Strict-Transport-Security"], "max-age=10886400; preload")
+        self.assertEqual(response["strict-transport-security"], "max-age=10886400; preload")
 
     @override_settings(SECURE_HSTS_SECONDS=10886400, SECURE_HSTS_INCLUDE_SUBDOMAINS=True, SECURE_HSTS_PRELOAD=True)
     def test_sts_subdomains_and_preload(self):
         """
         With HSTS_SECONDS non-zero, SECURE_HSTS_INCLUDE_SUBDOMAINS and
-        SECURE_HSTS_PRELOAD True, the middleware adds a "Strict-Transport-Security"
+        SECURE_HSTS_PRELOAD True, the middleware adds a "strict-transport-security"
         header containing both the "includeSubDomains" and "preload" directives
         to the response.
         """
         response = self.process_response(secure=True)
-        self.assertEqual(response["Strict-Transport-Security"], "max-age=10886400; includeSubDomains; preload")
+        self.assertEqual(response["strict-transport-security"], "max-age=10886400; includeSubDomains; preload")
 
     @override_settings(SECURE_HSTS_SECONDS=10886400, SECURE_HSTS_PRELOAD=False)
     def test_sts_no_preload(self):
         """
         With HSTS_SECONDS non-zero and SECURE_HSTS_PRELOAD
-        False, the middleware adds a "Strict-Transport-Security" header without
+        False, the middleware adds a "strict-transport-security" header without
         the "preload" directive to the response.
         """
         response = self.process_response(secure=True)
-        self.assertEqual(response["Strict-Transport-Security"], "max-age=10886400")
+        self.assertEqual(response["strict-transport-security"], "max-age=10886400")
 
     @override_settings(SECURE_CONTENT_TYPE_NOSNIFF=True)
     def test_content_type_on(self):
         """
         With CONTENT_TYPE_NOSNIFF set to True, the middleware adds
-        "X-Content-Type-Options: nosniff" header to the response.
+        "x-content-type-options: nosniff" header to the response.
         """
-        self.assertEqual(self.process_response()["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(self.process_response()["x-content-type-options"], "nosniff")
 
     @override_settings(SECURE_CONTENT_TYPE_NOSNIFF=True)
     def test_content_type_already_present(self):
         """
-        The middleware will not override an "X-Content-Type-Options" header
+        The middleware will not override an "x-content-type-options" header
         already present in the response.
         """
-        response = self.process_response(secure=True, headers={"X-Content-Type-Options": "foo"})
-        self.assertEqual(response["X-Content-Type-Options"], "foo")
+        response = self.process_response(secure=True, headers={"x-content-type-options": "foo"})
+        self.assertEqual(response["x-content-type-options"], "foo")
 
     @override_settings(SECURE_CONTENT_TYPE_NOSNIFF=False)
     def test_content_type_off(self):
         """
         With CONTENT_TYPE_NOSNIFF False, the middleware does not add an
-        "X-Content-Type-Options" header to the response.
+        "x-content-type-options" header to the response.
         """
-        self.assertNotIn("X-Content-Type-Options", self.process_response())
+        self.assertNotIn("x-content-type-options", self.process_response())
 
     @override_settings(SECURE_BROWSER_XSS_FILTER=True)
     def test_xss_filter_on(self):
@@ -163,25 +163,25 @@ class SecurityMiddlewareTest(SimpleTestCase):
         "s-xss-protection: 1; mode=block" header to the response.
         """
         self.assertEqual(
-            self.process_response()["X-XSS-Protection"],
+            self.process_response()["x-xss-protection"],
             "1; mode=block")
 
     @override_settings(SECURE_BROWSER_XSS_FILTER=True)
     def test_xss_filter_already_present(self):
         """
-        The middleware will not override an "X-XSS-Protection" header
+        The middleware will not override an "x-xss-protection" header
         already present in the response.
         """
-        response = self.process_response(secure=True, headers={"X-XSS-Protection": "foo"})
-        self.assertEqual(response["X-XSS-Protection"], "foo")
+        response = self.process_response(secure=True, headers={"x-xss-protection": "foo"})
+        self.assertEqual(response["x-xss-protection"], "foo")
 
     @override_settings(BROWSER_XSS_FILTER=False)
     def test_xss_filter_off(self):
         """
         With BROWSER_XSS_FILTER set to False, the middleware does not add an
-        "X-XSS-Protection" header to the response.
+        "x-xss-protection" header to the response.
         """
-        self.assertNotIn("X-XSS-Protection", self.process_response())
+        self.assertNotIn("x-xss-protection", self.process_response())
 
     @override_settings(SECURE_SSL_REDIRECT=True)
     def test_ssl_redirect_on(self):

@@ -249,54 +249,54 @@ class BookmarkAdminGenericRelation(ModelAdmin):
 
 
 class ListFiltersTests(TestCase):
-    request_factory = RequestFactory()
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.today = datetime.date.today()
-        cls.tomorrow = cls.today + datetime.timedelta(days=1)
-        cls.one_week_ago = cls.today - datetime.timedelta(days=7)
-        if cls.today.month == 12:
-            cls.next_month = cls.today.replace(year=cls.today.year + 1, month=1, day=1)
+    def setUp(self):
+        self.today = datetime.date.today()
+        self.tomorrow = self.today + datetime.timedelta(days=1)
+        self.one_week_ago = self.today - datetime.timedelta(days=7)
+        if self.today.month == 12:
+            self.next_month = self.today.replace(year=self.today.year + 1, month=1, day=1)
         else:
-            cls.next_month = cls.today.replace(month=cls.today.month + 1, day=1)
-        cls.next_year = cls.today.replace(year=cls.today.year + 1, month=1, day=1)
+            self.next_month = self.today.replace(month=self.today.month + 1, day=1)
+        self.next_year = self.today.replace(year=self.today.year + 1, month=1, day=1)
+
+        self.request_factory = RequestFactory()
 
         # Users
-        cls.alfred = User.objects.create_superuser('alfred', 'alfred@example.com', 'password')
-        cls.bob = User.objects.create_user('bob', 'bob@example.com')
-        cls.lisa = User.objects.create_user('lisa', 'lisa@example.com')
+        self.alfred = User.objects.create_superuser('alfred', 'alfred@example.com', 'password')
+        self.bob = User.objects.create_user('bob', 'bob@example.com')
+        self.lisa = User.objects.create_user('lisa', 'lisa@example.com')
 
         # Books
-        cls.djangonaut_book = Book.objects.create(
+        self.djangonaut_book = Book.objects.create(
             title='Djangonaut: an art of living', year=2009,
-            author=cls.alfred, is_best_seller=True, date_registered=cls.today,
+            author=self.alfred, is_best_seller=True, date_registered=self.today,
             is_best_seller2=True,
         )
-        cls.bio_book = Book.objects.create(
-            title='Django: a biography', year=1999, author=cls.alfred,
+        self.bio_book = Book.objects.create(
+            title='Django: a biography', year=1999, author=self.alfred,
             is_best_seller=False, no=207,
             is_best_seller2=False,
         )
-        cls.django_book = Book.objects.create(
-            title='The Django Book', year=None, author=cls.bob,
-            is_best_seller=None, date_registered=cls.today, no=103,
+        self.django_book = Book.objects.create(
+            title='The Django Book', year=None, author=self.bob,
+            is_best_seller=None, date_registered=self.today, no=103,
             is_best_seller2=None,
         )
-        cls.guitar_book = Book.objects.create(
+        self.guitar_book = Book.objects.create(
             title='Guitar for dummies', year=2002, is_best_seller=True,
-            date_registered=cls.one_week_ago,
+            date_registered=self.one_week_ago,
             is_best_seller2=True,
         )
-        cls.guitar_book.contributors.set([cls.bob, cls.lisa])
+        self.guitar_book.contributors.set([self.bob, self.lisa])
 
         # Departments
-        cls.dev = Department.objects.create(code='DEV', description='Development')
-        cls.design = Department.objects.create(code='DSN', description='Design')
+        self.dev = Department.objects.create(code='DEV', description='Development')
+        self.design = Department.objects.create(code='DSN', description='Design')
 
         # Employees
-        cls.john = Employee.objects.create(name='John Blue', department=cls.dev)
-        cls.jack = Employee.objects.create(name='Jack Red', department=cls.design)
+        self.john = Employee.objects.create(name='John Blue', department=self.dev)
+        self.jack = Employee.objects.create(name='Jack Red', department=self.design)
 
     def test_choicesfieldlistfilter_has_none_choice(self):
         """
@@ -322,10 +322,8 @@ class ListFiltersTests(TestCase):
         request.user = self.alfred
         changelist = modeladmin.get_changelist(request)
 
-        request = self.request_factory.get('/', {
-            'date_registered__gte': self.today,
-            'date_registered__lt': self.tomorrow},
-        )
+        request = self.request_factory.get('/', {'date_registered__gte': self.today,
+                                                 'date_registered__lt': self.tomorrow})
         request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
@@ -346,10 +344,8 @@ class ListFiltersTests(TestCase):
             )
         )
 
-        request = self.request_factory.get('/', {
-            'date_registered__gte': self.today.replace(day=1),
-            'date_registered__lt': self.next_month},
-        )
+        request = self.request_factory.get('/', {'date_registered__gte': self.today.replace(day=1),
+                                                 'date_registered__lt': self.next_month})
         request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
@@ -374,10 +370,8 @@ class ListFiltersTests(TestCase):
             )
         )
 
-        request = self.request_factory.get('/', {
-            'date_registered__gte': self.today.replace(month=1, day=1),
-            'date_registered__lt': self.next_year},
-        )
+        request = self.request_factory.get('/', {'date_registered__gte': self.today.replace(month=1, day=1),
+                                                 'date_registered__lt': self.next_year})
         request.user = self.alfred
         changelist = modeladmin.get_changelist_instance(request)
 
@@ -553,43 +547,6 @@ class ListFiltersTests(TestCase):
         choice = select_by(filterspec.choices(changelist), "display", "alfred")
         self.assertIs(choice['selected'], True)
         self.assertEqual(choice['query_string'], '?author__id__exact=%d' % self.alfred.pk)
-
-    def test_relatedfieldlistfilter_foreignkey_ordering(self):
-        """RelatedFieldListFilter ordering respects ModelAdmin.ordering."""
-        class EmployeeAdminWithOrdering(ModelAdmin):
-            ordering = ('name',)
-
-        class BookAdmin(ModelAdmin):
-            list_filter = ('employee',)
-
-        site.register(Employee, EmployeeAdminWithOrdering)
-        self.addCleanup(lambda: site.unregister(Employee))
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(self.jack.pk, 'Jack Red'), (self.john.pk, 'John Blue')]
-        self.assertEqual(filterspec.lookup_choices, expected)
-
-    def test_relatedfieldlistfilter_foreignkey_ordering_reverse(self):
-        class EmployeeAdminWithOrdering(ModelAdmin):
-            ordering = ('-name',)
-
-        class BookAdmin(ModelAdmin):
-            list_filter = ('employee',)
-
-        site.register(Employee, EmployeeAdminWithOrdering)
-        self.addCleanup(lambda: site.unregister(Employee))
-        modeladmin = BookAdmin(Book, site)
-
-        request = self.request_factory.get('/')
-        request.user = self.alfred
-        changelist = modeladmin.get_changelist_instance(request)
-        filterspec = changelist.get_filters(request)[0][0]
-        expected = [(self.john.pk, 'John Blue'), (self.jack.pk, 'Jack Red')]
-        self.assertEqual(filterspec.lookup_choices, expected)
 
     def test_relatedfieldlistfilter_manytomany(self):
         modeladmin = BookAdmin(Book, site)

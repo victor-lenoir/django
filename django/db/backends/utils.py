@@ -158,11 +158,15 @@ def typecast_timestamp(s):  # does NOT store time zone information
     if ' ' not in s:
         return typecast_date(s)
     d, t = s.split()
-    # Remove timezone information.
+    # Extract timezone information, if it exists. Currently it's ignored.
     if '-' in t:
-        t, _ = t.split('-', 1)
+        t, tz = t.split('-', 1)
+        tz = '-' + tz
     elif '+' in t:
-        t, _ = t.split('+', 1)
+        t, tz = t.split('+', 1)
+        tz = '+' + tz
+    else:
+        tz = ''
     dates = d.split('-')
     times = t.split(':')
     seconds = times[2]

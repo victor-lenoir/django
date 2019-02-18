@@ -12,7 +12,6 @@ class DjangoTemplatesTests(TemplateStringsTests):
 
     engine_class = DjangoTemplates
     backend_name = 'django'
-    request_factory = RequestFactory()
 
     def test_context_has_priority_over_template_context_processors(self):
         # See ticket #23789.
@@ -26,7 +25,7 @@ class DjangoTemplatesTests(TemplateStringsTests):
         })
 
         template = engine.from_string('{{ processors }}')
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
 
         # Context processors run
         content = template.render({}, request)
@@ -46,7 +45,7 @@ class DjangoTemplatesTests(TemplateStringsTests):
         })
         template = engine.from_string('')
         context = Context()
-        request_context = RequestContext(self.request_factory.get('/'), {})
+        request_context = RequestContext(RequestFactory().get('/'), {})
         msg = 'context must be a dict rather than Context.'
         with self.assertRaisesMessage(TypeError, msg):
             template.render(context)

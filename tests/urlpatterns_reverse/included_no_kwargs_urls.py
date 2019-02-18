@@ -1,7 +1,7 @@
-from django.urls import re_path
+from django.conf.urls import url
 
 from .views import empty_view
 
 urlpatterns = [
-    re_path('^inner-no-kwargs/([0-9]+)/$', empty_view, name="inner-no-kwargs")
+    url(r'^inner-no-kwargs/([0-9]+)/', empty_view, name="inner-no-kwargs")
 ]

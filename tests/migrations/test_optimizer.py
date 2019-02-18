@@ -1,7 +1,6 @@
 from django.db import migrations, models
 from django.db.migrations import operations
 from django.db.migrations.optimizer import MigrationOptimizer
-from django.db.migrations.serializer import serializer_factory
 from django.test import SimpleTestCase
 
 from .models import EmptyManager, UnicodeModel
@@ -19,13 +18,10 @@ class OptimizerTests(SimpleTestCase):
         optimizer = MigrationOptimizer()
         return optimizer.optimize(operations, app_label), optimizer._iterations
 
-    def serialize(self, value):
-        return serializer_factory(value).serialize()[0]
-
     def assertOptimizesTo(self, operations, expected, exact=None, less_than=None, app_label=None):
         result, iterations = self.optimize(operations, app_label)
-        result = [self.serialize(f) for f in result]
-        expected = [self.serialize(f) for f in expected]
+        result = [repr(f.deconstruct()) for f in result]
+        expected = [repr(f.deconstruct()) for f in expected]
         self.assertEqual(expected, result)
         if exact is not None and iterations != exact:
             raise self.failureException(
@@ -364,7 +360,7 @@ class OptimizerTests(SimpleTestCase):
                     ('url', models.TextField()),
                     ('foo_fk', models.ForeignKey('migrations.Foo', models.CASCADE)),
                 ]),
-                migrations.AddField('Foo', 'bar_fk', models.ForeignKey('migrations.Bar', models.CASCADE)),
+                migrations.AddField('Foo', 'bar_fk', models.ForeignKey('migrations.Foo', models.CASCADE)),
             ],
         )
 

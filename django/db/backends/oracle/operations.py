@@ -1,7 +1,6 @@
 import datetime
 import re
 import uuid
-from functools import lru_cache
 
 from django.conf import settings
 from django.db.backends.base.operations import BaseDatabaseOperations
@@ -74,11 +73,11 @@ END;
         elif lookup_type == 'iso_year':
             return "TO_CHAR(%s, 'IYYY')" % field_name
         else:
-            # https://docs.oracle.com/en/database/oracle/oracle-database/18/sqlrf/EXTRACT-datetime.html
+            # https://docs.oracle.com/database/121/SQLRF/functions067.htm#SQLRF00639
             return "EXTRACT(%s FROM %s)" % (lookup_type.upper(), field_name)
 
     def date_trunc_sql(self, lookup_type, field_name):
-        # https://docs.oracle.com/en/database/oracle/oracle-database/18/sqlrf/ROUND-and-TRUNC-Date-Functions.html
+        # https://docs.oracle.com/database/121/SQLRF/functions271.htm#SQLRF52058
         if lookup_type in ('year', 'month'):
             return "TRUNC(%s, '%s')" % (field_name, lookup_type.upper())
         elif lookup_type == 'quarter':
@@ -118,7 +117,7 @@ END;
 
     def datetime_trunc_sql(self, lookup_type, field_name, tzname):
         field_name = self._convert_field_to_tz(field_name, tzname)
-        # https://docs.oracle.com/en/database/oracle/oracle-database/18/sqlrf/ROUND-and-TRUNC-Date-Functions.html
+        # https://docs.oracle.com/database/121/SQLRF/functions271.htm#SQLRF52058
         if lookup_type in ('year', 'month'):
             sql = "TRUNC(%s, '%s')" % (field_name, lookup_type.upper())
         elif lookup_type == 'quarter':
@@ -227,16 +226,17 @@ END;
         return " DEFERRABLE INITIALLY DEFERRED"
 
     def fetch_returned_insert_id(self, cursor):
-        value = cursor._insert_id_var.getvalue()
-        if value is None or value == []:
-            # cx_Oracle < 6.3 returns None, >= 6.3 returns empty list.
+        try:
+            value = cursor._insert_id_var.getvalue()
+            # cx_Oracle < 7 returns value, >= 7 returns list with single value.
+            return int(value[0] if isinstance(value, list) else value)
+        except (IndexError, TypeError):
+            # cx_Oracle < 6.3 returns None, >= 6.3 raises IndexError.
             raise DatabaseError(
                 'The database did not return a new row id. Probably "ORA-1403: '
                 'no data found" was raised internally but was hidden by the '
                 'Oracle OCI library (see https://code.djangoproject.com/ticket/28859).'
             )
-        # cx_Oracle < 7 returns value, >= 7 returns list with single value.
-        return value[0] if isinstance(value, list) else value
 
     def field_cast_sql(self, db_type, internal_type):
         if db_type and db_type.endswith('LOB'):
@@ -258,7 +258,7 @@ END;
         # https://cx-oracle.readthedocs.io/en/latest/cursor.html#Cursor.statement
         # The DB API definition does not define this attribute.
         statement = cursor.statement
-        # Unlike Psycopg's `query` and MySQLdb`'s `_executed`, CxOracle's
+        # Unlike Psycopg's `query` and MySQLdb`'s `_last_executed`, CxOracle's
         # `statement` doesn't contain the query parameters. refs #20010.
         return super().last_executed_query(cursor, statement, params)
 
@@ -315,7 +315,13 @@ END;
     def return_insert_id(self):
         return "RETURNING %s INTO %%s", (InsertIdVar(),)
 
-    def __foreign_key_constraints(self, table_name, recursive):
+    def savepoint_create_sql(self, sid):
+        return "SAVEPOINT " + self.quote_name(sid)
+
+    def savepoint_rollback_sql(self, sid):
+        return "ROLLBACK TO SAVEPOINT " + self.quote_name(sid)
+
+    def _foreign_key_constraints(self, table_name, recursive=False):
         with self.connection.cursor() as cursor:
             if recursive:
                 cursor.execute("""
@@ -347,12 +353,6 @@ END;
                         AND cons.table_name = UPPER(%s)
                 """, (table_name,))
             return cursor.fetchall()
-
-    @cached_property
-    def _foreign_key_constraints(self):
-        # 512 is large enough to fit the ~330 tables (as of this writing) in
-        # Django's test suite.
-        return lru_cache(maxsize=512)(self.__foreign_key_constraints)
 
     def sql_flush(self, style, tables, sequences, allow_cascade=False):
         if tables:
@@ -580,3 +580,9 @@ END;
         if fields:
             return self.connection.features.max_query_params // len(fields)
         return len(objs)
+
+    @cached_property
+    def compiler_module(self):
+        if self.connection.features.has_fetch_offset_support:
+            return super().compiler_module
+        return 'django.db.backends.oracle.compiler'

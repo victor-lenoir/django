@@ -832,9 +832,8 @@ class UniqueTest(TestCase):
     """
     unique/unique_together validation.
     """
-    @classmethod
-    def setUpTestData(cls):
-        cls.writer = Writer.objects.create(name='Mike Royko')
+    def setUp(self):
+        self.writer = Writer.objects.create(name='Mike Royko')
 
     def test_simple_unique(self):
         form = ProductForm({'slug': 'teddy-bear-blue'})
@@ -1297,11 +1296,9 @@ class ModelFormBasicTests(TestCase):
 
     def test_basic_creation(self):
         self.assertEqual(Category.objects.count(), 0)
-        f = BaseCategoryForm({
-            'name': 'Entertainment',
-            'slug': 'entertainment',
-            'url': 'entertainment',
-        })
+        f = BaseCategoryForm({'name': 'Entertainment',
+                              'slug': 'entertainment',
+                              'url': 'entertainment'})
         self.assertTrue(f.is_valid())
         self.assertEqual(f.cleaned_data['name'], 'Entertainment')
         self.assertEqual(f.cleaned_data['slug'], 'entertainment')
@@ -1590,11 +1587,10 @@ class ModelFormBasicTests(TestCase):
 
 
 class ModelMultipleChoiceFieldTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.c1 = Category.objects.create(name='Entertainment', slug='entertainment', url='entertainment')
-        cls.c2 = Category.objects.create(name="It's a test", slug='its-test', url='test')
-        cls.c3 = Category.objects.create(name='Third', slug='third-test', url='third')
+    def setUp(self):
+        self.c1 = Category.objects.create(name='Entertainment', slug='entertainment', url='entertainment')
+        self.c2 = Category.objects.create(name="It's a test", slug='its-test', url='test')
+        self.c3 = Category.objects.create(name='Third', slug='third-test', url='third')
 
     def test_model_multiple_choice_field(self):
         f = forms.ModelMultipleChoiceField(Category.objects.all())
@@ -1714,23 +1710,15 @@ class ModelMultipleChoiceFieldTests(TestCase):
         person1 = Writer.objects.create(name="Person 1")
         person2 = Writer.objects.create(name="Person 2")
 
-        form = WriterForm(
-            initial={'persons': [person1, person2]},
-            data={
-                'initial-persons': [str(person1.pk), str(person2.pk)],
-                'persons': [str(person1.pk), str(person2.pk)],
-            },
-        )
+        form = WriterForm(initial={'persons': [person1, person2]},
+                          data={'initial-persons': [str(person1.pk), str(person2.pk)],
+                                'persons': [str(person1.pk), str(person2.pk)]})
         self.assertTrue(form.is_valid())
         self.assertFalse(form.has_changed())
 
-        form = WriterForm(
-            initial={'persons': [person1, person2]},
-            data={
-                'initial-persons': [str(person1.pk), str(person2.pk)],
-                'persons': [str(person2.pk)],
-            },
-        )
+        form = WriterForm(initial={'persons': [person1, person2]},
+                          data={'initial-persons': [str(person1.pk), str(person2.pk)],
+                                'persons': [str(person2.pk)]})
         self.assertTrue(form.is_valid())
         self.assertTrue(form.has_changed())
 
@@ -2861,7 +2849,7 @@ class CustomMetaclassTestCase(SimpleTestCase):
         self.assertEqual(new_cls.base_fields, {})
 
 
-class StrictAssignmentTests(SimpleTestCase):
+class StrictAssignmentTests(TestCase):
     """
     Should a model do anything special with __setattr__() or descriptors which
     raise a ValidationError, a model form should catch the error (#24706).

@@ -16,18 +16,13 @@ class DatabaseSchemaEditor(BaseDatabaseSchemaEditor):
     sql_rename_column = "ALTER TABLE %(table)s CHANGE %(old_column)s %(new_column)s %(type)s"
 
     sql_delete_unique = "ALTER TABLE %(table)s DROP INDEX %(name)s"
-    sql_create_column_inline_fk = (
-        ', ADD CONSTRAINT %(name)s FOREIGN KEY (%(column)s) '
-        'REFERENCES %(to_table)s(%(to_column)s)'
-    )
+
     sql_delete_fk = "ALTER TABLE %(table)s DROP FOREIGN KEY %(name)s"
 
     sql_delete_index = "DROP INDEX %(name)s ON %(table)s"
 
     sql_create_pk = "ALTER TABLE %(table)s ADD CONSTRAINT %(name)s PRIMARY KEY (%(columns)s)"
     sql_delete_pk = "ALTER TABLE %(table)s DROP PRIMARY KEY"
-
-    sql_create_index = 'CREATE INDEX %(name)s ON %(table)s (%(columns)s)%(extra)s'
 
     def quote_value(self, value):
         self.connection.ensure_connection()

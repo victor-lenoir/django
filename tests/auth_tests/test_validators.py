@@ -11,7 +11,7 @@ from django.contrib.auth.password_validation import (
 )
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import TestCase, override_settings
 from django.test.utils import isolate_apps
 from django.utils.html import conditional_escape
 
@@ -22,7 +22,7 @@ from django.utils.html import conditional_escape
         'min_length': 12,
     }},
 ])
-class PasswordValidationTest(SimpleTestCase):
+class PasswordValidationTest(TestCase):
     def test_get_default_password_validators(self):
         validators = get_default_password_validators()
         self.assertEqual(len(validators), 2)
@@ -95,7 +95,7 @@ class PasswordValidationTest(SimpleTestCase):
         self.assertEqual(password_validators_help_text_html(), '')
 
 
-class MinimumLengthValidatorTest(SimpleTestCase):
+class MinimumLengthValidatorTest(TestCase):
     def test_validate(self):
         expected_error = "This password is too short. It must contain at least %d characters."
         self.assertIsNone(MinimumLengthValidator().validate('12345678'))
@@ -182,7 +182,7 @@ class UserAttributeSimilarityValidatorTest(TestCase):
         )
 
 
-class CommonPasswordValidatorTest(SimpleTestCase):
+class CommonPasswordValidatorTest(TestCase):
     def test_validate(self):
         expected_error = "This password is too common."
         self.assertIsNone(CommonPasswordValidator().validate('a-safe-password'))
@@ -202,11 +202,6 @@ class CommonPasswordValidatorTest(SimpleTestCase):
         self.assertEqual(cm.exception.messages, [expected_error])
         self.assertEqual(cm.exception.error_list[0].code, 'password_too_common')
 
-    def test_validate_django_supplied_file(self):
-        validator = CommonPasswordValidator()
-        for password in validator.passwords:
-            self.assertEqual(password, password.lower())
-
     def test_help_text(self):
         self.assertEqual(
             CommonPasswordValidator().get_help_text(),
@@ -214,7 +209,7 @@ class CommonPasswordValidatorTest(SimpleTestCase):
         )
 
 
-class NumericPasswordValidatorTest(SimpleTestCase):
+class NumericPasswordValidatorTest(TestCase):
     def test_validate(self):
         expected_error = "This password is entirely numeric."
         self.assertIsNone(NumericPasswordValidator().validate('a-safe-password'))
@@ -231,7 +226,7 @@ class NumericPasswordValidatorTest(SimpleTestCase):
         )
 
 
-class UsernameValidatorsTests(SimpleTestCase):
+class UsernameValidatorsTests(TestCase):
     def test_unicode_validator(self):
         valid_usernames = ['joe', 'René', 'ᴮᴵᴳᴮᴵᴿᴰ', 'أحمد']
         invalid_usernames = [

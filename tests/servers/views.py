@@ -1,17 +1,12 @@
 from urllib.request import urlopen
 
-from django.http import HttpResponse, StreamingHttpResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.http import HttpResponse
 
 from .models import Person
 
 
 def example_view(request):
     return HttpResponse('example view')
-
-
-def streaming_example_view(request):
-    return StreamingHttpResponse((b'I', b'am', b'a', b'stream'))
 
 
 def model_view(request):
@@ -22,7 +17,7 @@ def model_view(request):
 def create_model_instance(request):
     person = Person(name='emily')
     person.save()
-    return HttpResponse()
+    return HttpResponse('')
 
 
 def environ_view(request):
@@ -43,8 +38,3 @@ def check_model_instance_from_subview(request):
         pass
     with urlopen(request.GET['url'] + '/model_view/') as response:
         return HttpResponse('subview calling view: {}'.format(response.read().decode()))
-
-
-@csrf_exempt
-def method_view(request):
-    return HttpResponse(request.method)

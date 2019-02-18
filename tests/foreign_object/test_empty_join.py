@@ -4,8 +4,7 @@ from .models import SlugPage
 
 
 class RestrictedConditionsTests(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         slugs = [
             'a',
             'a/a',

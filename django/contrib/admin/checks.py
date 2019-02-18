@@ -1,3 +1,4 @@
+import warnings
 from itertools import chain
 
 from django.apps import apps
@@ -15,17 +16,8 @@ from django.forms.models import (
 )
 from django.template import engines
 from django.template.backends.django import DjangoTemplates
-
-
-def _issubclass(cls, classinfo):
-    """
-    issubclass() variant that doesn't raise an exception if cls isn't a
-    class.
-    """
-    try:
-        return issubclass(cls, classinfo)
-    except TypeError:
-        return False
+from django.utils.deprecation import RemovedInDjango30Warning
+from django.utils.inspect import get_func_args
 
 
 def check_admin_app(app_configs, **kwargs):
@@ -349,7 +341,7 @@ class BaseModelAdminChecks:
 
     def _check_form(self, obj):
         """ Check that form subclasses BaseModelForm. """
-        if not _issubclass(obj.form, BaseModelForm):
+        if not issubclass(obj.form, BaseModelForm):
             return must_inherit_from(parent='BaseModelForm', option='form',
                                      obj=obj, id='admin.E016')
         else:
@@ -648,20 +640,11 @@ class ModelAdminChecks(BaseModelAdminChecks):
 
     def _check_inlines_item(self, obj, inline, label):
         """ Check one inline model admin. """
-        try:
-            inline_label = inline.__module__ + '.' + inline.__name__
-        except AttributeError:
-            return [
-                checks.Error(
-                    "'%s' must inherit from 'InlineModelAdmin'." % obj,
-                    obj=obj.__class__,
-                    id='admin.E104',
-                )
-            ]
+        inline_label = inline.__module__ + '.' + inline.__name__
 
         from django.contrib.admin.options import InlineModelAdmin
 
-        if not _issubclass(inline, InlineModelAdmin):
+        if not issubclass(inline, InlineModelAdmin):
             return [
                 checks.Error(
                     "'%s' must inherit from 'InlineModelAdmin'." % inline_label,
@@ -677,7 +660,7 @@ class ModelAdminChecks(BaseModelAdminChecks):
                     id='admin.E105',
                 )
             ]
-        elif not _issubclass(inline.model, models.Model):
+        elif not issubclass(inline.model, models.Model):
             return must_be('a Model', option='%s.model' % inline_label, obj=obj, id='admin.E106')
         else:
             return inline(obj.model, obj.admin_site).check()
@@ -780,7 +763,7 @@ class ModelAdminChecks(BaseModelAdminChecks):
 
         if callable(item) and not isinstance(item, models.Field):
             # If item is option 3, it should be a ListFilter...
-            if not _issubclass(item, ListFilter):
+            if not issubclass(item, ListFilter):
                 return must_inherit_from(parent='ListFilter', option=label,
                                          obj=obj, id='admin.E113')
             # ...  but not a FieldListFilter.
@@ -797,7 +780,7 @@ class ModelAdminChecks(BaseModelAdminChecks):
         elif isinstance(item, (tuple, list)):
             # item is option #2
             field, list_filter_class = item
-            if not _issubclass(list_filter_class, FieldListFilter):
+            if not issubclass(list_filter_class, FieldListFilter):
                 return must_inherit_from(parent='FieldListFilter', option='%s[1]' % label, obj=obj, id='admin.E115')
             else:
                 return []
@@ -978,6 +961,7 @@ class ModelAdminChecks(BaseModelAdminChecks):
 class InlineModelAdminChecks(BaseModelAdminChecks):
 
     def check(self, inline_obj, **kwargs):
+        self._check_has_add_permission(inline_obj)
         parent_model = inline_obj.parent_model
         return [
             *super().check(inline_obj),
@@ -1057,10 +1041,24 @@ class InlineModelAdminChecks(BaseModelAdminChecks):
     def _check_formset(self, obj):
         """ Check formset is a subclass of BaseModelFormSet. """
 
-        if not _issubclass(obj.formset, BaseModelFormSet):
+        if not issubclass(obj.formset, BaseModelFormSet):
             return must_inherit_from(parent='BaseModelFormSet', option='formset', obj=obj, id='admin.E206')
         else:
             return []
+
+    def _check_has_add_permission(self, obj):
+        cls = obj.__class__
+        try:
+            func = cls.has_add_permission
+        except AttributeError:
+            pass
+        else:
+            args = get_func_args(func)
+            if 'obj' not in args:
+                warnings.warn(
+                    "Update %s.has_add_permission() to accept a positional "
+                    "`obj` argument." % cls.__name__, RemovedInDjango30Warning
+                )
 
 
 def must_be(type, option, obj, id):

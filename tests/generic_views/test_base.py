@@ -1,4 +1,5 @@
 import time
+import unittest
 
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponse
@@ -64,7 +65,7 @@ class InstanceView(View):
         return self
 
 
-class ViewTest(SimpleTestCase):
+class ViewTest(unittest.TestCase):
     rf = RequestFactory()
 
     def _assert_simple(self, response):
@@ -75,16 +76,14 @@ class ViewTest(SimpleTestCase):
         """
         A view can't be accidentally instantiated before deployment
         """
-        msg = 'This method is available only on the class, not on instances.'
-        with self.assertRaisesMessage(AttributeError, msg):
+        with self.assertRaises(AttributeError):
             SimpleView(key='value').as_view()
 
     def test_no_init_args(self):
         """
         A view can't be accidentally instantiated before deployment
         """
-        msg = 'as_view() takes 1 positional argument but 2 were given'
-        with self.assertRaisesMessage(TypeError, msg):
+        with self.assertRaises(TypeError):
             SimpleView.as_view('value')
 
     def test_pathological_http_method(self):
@@ -135,24 +134,15 @@ class ViewTest(SimpleTestCase):
         View arguments must be predefined on the class and can't
         be named like a HTTP method.
         """
-        msg = (
-            "You tried to pass in the %s method name as a keyword argument "
-            "to SimpleView(). Don't do that."
-        )
         # Check each of the allowed method names
         for method in SimpleView.http_method_names:
-            with self.assertRaisesMessage(TypeError, msg % method):
+            with self.assertRaises(TypeError):
                 SimpleView.as_view(**{method: 'value'})
 
         # Check the case view argument is ok if predefined on the class...
         CustomizableView.as_view(parameter="value")
         # ...but raises errors otherwise.
-        msg = (
-            "CustomizableView() received an invalid keyword 'foobar'. "
-            "as_view only accepts arguments that are already attributes of "
-            "the class."
-        )
-        with self.assertRaisesMessage(TypeError, msg):
+        with self.assertRaises(TypeError):
             CustomizableView.as_view(foobar="value")
 
     def test_calling_more_than_once(self):
@@ -232,32 +222,6 @@ class ViewTest(SimpleTestCase):
         for attribute in ('args', 'kwargs', 'request'):
             self.assertNotIn(attribute, dir(bare_view))
             self.assertIn(attribute, dir(view))
-
-    def test_overridden_setup(self):
-        class SetAttributeMixin:
-            def setup(self, request, *args, **kwargs):
-                self.attr = True
-                super().setup(request, *args, **kwargs)
-
-        class CheckSetupView(SetAttributeMixin, SimpleView):
-            def dispatch(self, request, *args, **kwargs):
-                assert hasattr(self, 'attr')
-                return super().dispatch(request, *args, **kwargs)
-
-        response = CheckSetupView.as_view()(self.rf.get('/'))
-        self.assertEqual(response.status_code, 200)
-
-    def test_not_calling_parent_setup_error(self):
-        class TestView(View):
-            def setup(self, request, *args, **kwargs):
-                pass  # Not calling supre().setup()
-
-        msg = (
-            "TestView instance has no 'request' attribute. Did you override "
-            "setup() and forget to call super()?"
-        )
-        with self.assertRaisesMessage(AttributeError, msg):
-            TestView.as_view()(self.rf.get('/'))
 
     def test_direct_instantiation(self):
         """
@@ -502,7 +466,7 @@ class RedirectViewTest(SimpleTestCase):
         self.assertEqual(response.status_code, 410)
 
 
-class GetContextDataTest(SimpleTestCase):
+class GetContextDataTest(unittest.TestCase):
 
     def test_get_context_data_super(self):
         test_view = views.CustomContextView()
@@ -531,7 +495,7 @@ class GetContextDataTest(SimpleTestCase):
         self.assertEqual(context['object'], test_view.object)
 
 
-class UseMultipleObjectMixinTest(SimpleTestCase):
+class UseMultipleObjectMixinTest(unittest.TestCase):
     rf = RequestFactory()
 
     def test_use_queryset_from_view(self):
@@ -551,7 +515,7 @@ class UseMultipleObjectMixinTest(SimpleTestCase):
         self.assertEqual(context['object_list'], queryset)
 
 
-class SingleObjectTemplateResponseMixinTest(SimpleTestCase):
+class SingleObjectTemplateResponseMixinTest(unittest.TestCase):
 
     def test_template_mixin_without_template(self):
         """
@@ -560,9 +524,5 @@ class SingleObjectTemplateResponseMixinTest(SimpleTestCase):
         TemplateDoesNotExist.
         """
         view = views.TemplateResponseWithoutTemplate()
-        msg = (
-            "TemplateResponseMixin requires either a definition of "
-            "'template_name' or an implementation of 'get_template_names()'"
-        )
-        with self.assertRaisesMessage(ImproperlyConfigured, msg):
+        with self.assertRaises(ImproperlyConfigured):
             view.get_template_names()

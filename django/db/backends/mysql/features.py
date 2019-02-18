@@ -1,5 +1,3 @@
-import operator
-
 from django.db.backends.base.features import BaseDatabaseFeatures
 from django.utils.functional import cached_property
 
@@ -25,6 +23,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_timezones = False
     requires_explicit_null_ordering_when_grouping = True
     allows_auto_pk_0 = False
+    uses_savepoints = True
     can_release_savepoints = True
     atomic_transactions = False
     supports_column_check_constraints = False
@@ -53,8 +52,6 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     db_functions_convert_bytes_to_str = True
     # Alias MySQL's TRADITIONAL to TEXT for consistency with other backends.
     supported_explain_formats = {'JSON', 'TEXT', 'TRADITIONAL'}
-    # Neither MySQL nor MariaDB support partial indexes.
-    supports_partial_indexes = False
 
     @cached_property
     def _mysql_storage_engine(self):
@@ -93,7 +90,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     def has_select_for_update_skip_locked(self):
         return not self.connection.mysql_is_mariadb and self.connection.mysql_version >= (8, 0, 1)
 
-    has_select_for_update_nowait = property(operator.attrgetter('has_select_for_update_skip_locked'))
+    has_select_for_update_nowait = has_select_for_update_skip_locked
 
     @cached_property
     def needs_explain_extended(self):

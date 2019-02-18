@@ -213,7 +213,6 @@ class ContextTests(SimpleTestCase):
 
 
 class RequestContextTests(SimpleTestCase):
-    request_factory = RequestFactory()
 
     def test_include_only(self):
         """
@@ -225,7 +224,7 @@ class RequestContextTests(SimpleTestCase):
                 'child': '{{ var|default:"none" }}',
             }),
         ])
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         ctx = RequestContext(request, {'var': 'parent'})
         self.assertEqual(engine.from_string('{% include "child" %}').render(ctx), 'parent')
         self.assertEqual(engine.from_string('{% include "child" only %}').render(ctx), 'none')
@@ -234,7 +233,7 @@ class RequestContextTests(SimpleTestCase):
         """
         #7116 -- Optimize RequetsContext construction
         """
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         ctx = RequestContext(request, {})
         # The stack should now contain 3 items:
         # [builtins, supplied context, context processor, empty dict]
@@ -246,7 +245,7 @@ class RequestContextTests(SimpleTestCase):
 
         # test comparing RequestContext to prevent problems if somebody
         # adds __eq__ in the future
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
 
         self.assertEqual(
             RequestContext(request, dict_=test_data),
@@ -255,7 +254,7 @@ class RequestContextTests(SimpleTestCase):
 
     def test_modify_context_and_render(self):
         template = Template('{{ foo }}')
-        request = self.request_factory.get('/')
+        request = RequestFactory().get('/')
         context = RequestContext(request, {})
         context['foo'] = 'foo'
         self.assertEqual(template.render(context), 'foo')
