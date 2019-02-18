@@ -1026,13 +1026,15 @@ class BaseDatabaseSchemaEditor:
         def create_fk_name(*args, **kwargs):
             return self.quote_name(self._create_index_name(*args, **kwargs))
 
-        return ForeignKeyName(
-            model._meta.db_table,
-            [field.column],
-            split_identifier(field.target_field.model._meta.db_table)[1],
-            [field.target_field.column],
-            suffix,
-            create_fk_name,
+        return Statement(
+            self.sql_create_fk,
+            table=Table(from_table, self.quote_name),
+            name=ForeignKeyName(from_table, [from_column], to_table, [to_column], suffix, create_fk_name),
+            column=Columns(from_table, [from_column], self.quote_name),
+            to_table=Table(field.target_field.model._meta.db_table, self.quote_name),
+            to_column=Columns(field.target_field.model._meta.db_table, [to_column], self.quote_name),
+            deferrable=self.connection.ops.deferrable_sql(),
+            on_delete=self._create_on_delete_sql(model, field, suffix),
         )
 
     def _delete_fk_sql(self, model, name):
